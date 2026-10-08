@@ -31,7 +31,11 @@ async function handleKeepalive(req: Request) {
     return NextResponse.json({
       status: "ok",
       message: "Turso database keepalive ping successful",
-      database: process.env.TURSO_DATABASE_URL ? "turso-libsql" : "local-sqlite",
+      database:
+        process.env.TURSO_DATABASE_URL ||
+        process.env.DATABASE_URL?.startsWith("libsql://")
+          ? "turso-libsql"
+          : "local-sqlite",
       userCount,
       durationMs: `${durationMs}ms`,
       timestamp: new Date().toISOString(),
