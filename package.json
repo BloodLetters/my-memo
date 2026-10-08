@@ -1,0 +1,14 @@
+{
+  "name": "my-memo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend start",
+    "postinstall": "npm --prefix frontend run postinstall"
+  },
+  "dependencies": {
+    "next": "16.4.0"
+  }
+}
