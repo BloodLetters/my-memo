@@ -39,8 +39,8 @@ export default function ArchiveModal({
       if (!res.ok) throw new Error("Gagal mengambil data arsip");
       const data = await res.json();
       setArchivedTasks(data.tasks || []);
-    } catch (err: any) {
-      setError(err.message || "Gagal memuat tugas terarsip.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal memuat tugas terarsip.");
     } finally {
       setIsLoading(false);
     }
@@ -65,8 +65,8 @@ export default function ArchiveModal({
 
       setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
       onRestored();
-    } catch (err: any) {
-      alert(err.message || "Gagal memulihkan tugas");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Gagal memulihkan tugas");
     }
   };
 
@@ -81,8 +81,8 @@ export default function ArchiveModal({
 
       setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
       onRestored();
-    } catch (err: any) {
-      alert(err.message || "Gagal menghapus tugas");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Gagal menghapus tugas");
     }
   };
 

@@ -13,7 +13,14 @@ import Board from "./Board";
 import AiSidebar from "./AiSidebar";
 import ArchiveModal from "./ArchiveModal";
 import TaskModal from "./TaskModal";
-import { CheckCircle2, Clock, ListTodo } from "lucide-react";
+import { ListTodo } from "lucide-react";
+
+const PRIORITY_WEIGHT: Record<TaskPriority, number> = {
+  URGENT: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
 
 interface BoardViewProps {
   user: UserItem;
@@ -86,13 +93,6 @@ export default function BoardView({
     return categories.map((c) => c.name);
   }, [categories]);
 
-  const priorityWeight: Record<TaskPriority, number> = {
-    URGENT: 4,
-    HIGH: 3,
-    MEDIUM: 2,
-    LOW: 1,
-  };
-
   // Filtered & Sorted active tasks
   const processedTasks = useMemo(() => {
     return tasks
@@ -132,7 +132,7 @@ export default function BoardView({
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         }
         if (sortBy === "priority") {
-          return priorityWeight[b.priority] - priorityWeight[a.priority];
+          return PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority];
         }
         return a.order - b.order;
       });

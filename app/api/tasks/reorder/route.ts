@@ -18,10 +18,11 @@ export async function POST(req: Request) {
     await batchReorderTasks(user.id, items);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal memperbarui urutan tugas.";
     console.error("POST /api/tasks/reorder error:", error);
     return NextResponse.json(
-      { error: "Gagal memperbarui urutan tugas." },
+      { error: errMsg },
       { status: 500 }
     );
   }

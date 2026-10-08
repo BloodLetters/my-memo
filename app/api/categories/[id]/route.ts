@@ -24,17 +24,18 @@ export async function PATCH(
 
     const updated = await updateCategory(user.id, id, name.trim());
     return NextResponse.json({ category: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal mengubah kategori.";
     console.error("PATCH /api/categories/[id] error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal mengubah kategori." },
+      { error: errMsg },
       { status: 500 }
     );
   }
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -47,10 +48,11 @@ export async function DELETE(
     await deleteCategory(user.id, id);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal menghapus kategori.";
     console.error("DELETE /api/categories/[id] error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal menghapus kategori." },
+      { error: errMsg },
       { status: 500 }
     );
   }

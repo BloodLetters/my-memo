@@ -8,10 +8,8 @@ import {
   LogOut,
   CheckSquare,
   Archive,
-  Menu,
   X,
   SlidersHorizontal,
-  Filter,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 

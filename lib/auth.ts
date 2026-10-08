@@ -65,8 +65,8 @@ export async function getCurrentUser() {
     }
 
     return session.user;
-  } catch (error: any) {
-    if (error?.digest === "DYNAMIC_SERVER_USAGE") {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
       throw error;
     }
     console.error("Error getting current user:", error);
@@ -86,8 +86,8 @@ export async function destroySession() {
     }
 
     cookieStore.delete(SESSION_COOKIE_NAME);
-  } catch (error: any) {
-    if (error?.digest === "DYNAMIC_SERVER_USAGE") {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
       throw error;
     }
     console.error("Error destroying session:", error);
@@ -97,13 +97,13 @@ export async function destroySession() {
 export async function ensureDefaultUser() {
   const userCount = await db.user.count();
   if (userCount === 0) {
-    const passwordHash = await hashPassword("admin123");
+    const passwordHash = await hashPassword("Aril4511");
     await db.user.create({
       data: {
-        username: "admin",
+        username: "Aril3721",
         passwordHash,
       },
     });
-    console.log("Created initial default user: username 'admin', password 'admin123'");
+    console.log("Created initial default user: username 'Aril3721'");
   }
 }

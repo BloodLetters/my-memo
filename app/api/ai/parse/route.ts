@@ -30,10 +30,11 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({ task: parsed });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal memproses parsing tugas AI.";
     console.error("POST /api/ai/parse error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal memproses parsing tugas AI." },
+      { error: errMsg },
       { status: 500 }
     );
   }

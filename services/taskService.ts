@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { BoardCategoryItem, TaskItem, TaskPriority } from "@/lib/types";
 
 export interface TaskFilterOptions {
@@ -177,7 +178,7 @@ export async function getTasks(
   userId: string,
   options: TaskFilterOptions = {}
 ): Promise<TaskItem[]> {
-  const where: any = { userId };
+  const where: Prisma.TaskWhereInput = { userId };
 
   // By default, filter out archived tasks unless isArchived is explicitly true
   if (options.isArchived !== undefined) {
@@ -212,7 +213,7 @@ export async function getTasks(
     ];
   }
 
-  let orderBy: any = [{ order: "asc" }, { createdAt: "desc" }];
+  let orderBy: Prisma.TaskOrderByWithRelationInput[] = [{ order: "asc" }, { createdAt: "desc" }];
 
   if (options.sortBy === "deadline") {
     orderBy = [{ deadline: options.sortOrder || "asc" }, { order: "asc" }];
@@ -355,7 +356,7 @@ export async function updateTask(userId: string, taskId: string, data: UpdateTas
 
   if (!existing) throw new Error("Task not found");
 
-  const updateData: any = {};
+  const updateData: Prisma.TaskUpdateInput = {};
   if (data.title !== undefined) updateData.title = data.title.trim();
   if (data.description !== undefined) updateData.description = data.description.trim();
   if (data.status !== undefined) updateData.status = data.status;

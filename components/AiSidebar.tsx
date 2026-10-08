@@ -9,11 +9,8 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Send,
-  Calendar,
   Layers,
   Image as ImageIcon,
-  Paperclip,
 } from "lucide-react";
 import { BoardCategoryItem, TaskPriority } from "@/lib/types";
 

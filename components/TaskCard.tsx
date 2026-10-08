@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { Calendar, Trash2, Edit3, Tag, GripVertical, Archive, Maximize2, X, Download, Image as ImageIcon } from "lucide-react";
+import { Calendar, Trash2, Edit3, GripVertical, Archive, Maximize2, X, Download, Image as ImageIcon } from "lucide-react";
 import { TaskItem } from "@/lib/types";
 import { formatDeadline, getDeadlineBadge, PRIORITY_STYLES } from "@/lib/utils";
 

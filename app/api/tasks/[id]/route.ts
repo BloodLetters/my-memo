@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getTaskById, updateTask, deleteTask } from "@/services/taskService";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -20,7 +20,7 @@ export async function GET(
     }
 
     return NextResponse.json({ task });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Gagal mengambil data tugas." }, { status: 500 });
   }
 }
@@ -40,17 +40,18 @@ export async function PATCH(
 
     const updated = await updateTask(user.id, id, body);
     return NextResponse.json({ task: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal memperbarui tugas.";
     console.error("PATCH /api/tasks/[id] error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal memperbarui tugas." },
+      { error: errMsg },
       { status: 500 }
     );
   }
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -63,10 +64,11 @@ export async function DELETE(
     await deleteTask(user.id, id);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal menghapus tugas.";
     console.error("DELETE /api/tasks/[id] error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal menghapus tugas." },
+      { error: errMsg },
       { status: 500 }
     );
   }

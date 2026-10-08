@@ -15,8 +15,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await db.user.findUnique({
-      where: { username: username.trim().toLowerCase() },
+    const cleanUsername = String(username).trim();
+
+    // Check user with exact case or lower case
+    const user = await db.user.findFirst({
+      where: {
+        OR: [
+          { username: cleanUsername },
+          { username: cleanUsername.toLowerCase() },
+        ],
+      },
     });
 
     if (!user) {
@@ -26,7 +34,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const isValid = await verifyPassword(password, user.passwordHash);
+    const isValid = await verifyPassword(String(password).trim(), user.passwordHash);
     if (!isValid) {
       return NextResponse.json(
         { error: "Username atau password salah." },
@@ -43,10 +51,11 @@ export async function POST(req: Request) {
         username: user.username,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Terjadi kesalahan pada server saat login.";
     console.error("Login error:", error);
     return NextResponse.json(
-      { error: "Terjadi kesalahan pada server saat login." },
+      { error: errMsg },
       { status: 500 }
     );
   }

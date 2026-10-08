@@ -14,7 +14,6 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
 
   const applyTheme = (t: Theme) => {
     if (typeof document === "undefined") return;
@@ -38,7 +37,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     setThemeState(initial);
     applyTheme(initial);
-    setMounted(true);
   }, []);
 
   const setTheme = (newTheme: Theme) => {

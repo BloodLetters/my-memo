@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Droppable } from "@hello-pangea/dnd";
-import { Plus, Edit2, Trash2, Check, X, MoreHorizontal } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X } from "lucide-react";
 import { BoardCategoryItem, TaskItem } from "@/lib/types";
 import TaskCard from "./TaskCard";
 

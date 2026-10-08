@@ -7,9 +7,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,10 +22,8 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    const endpoint = isRegisterMode ? "/api/auth/register" : "/api/auth/login";
-
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -38,13 +35,13 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Gagal masuk. Silakan cek kembali username/password.");
+        throw new Error(data.error || "Gagal masuk. Silakan periksa kembali username dan password.");
       }
 
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat masuk.");
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +55,6 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-sm">
-        
         {/* Brand & Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl mx-auto flex items-center justify-center shadow-sm mb-3">
@@ -74,15 +70,12 @@ export default function LoginPage() {
 
         {/* Card Box */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-6 sm:p-7 shadow-xs">
-          
           <div className="mb-5">
             <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-              {isRegisterMode ? "Buat Akun Baru" : "Masuk ke Board"}
+              Masuk ke Board
             </h2>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-              {isRegisterMode
-                ? "Daftarkan akun untuk mulai mengelola tugas lokal Anda."
-                : "Akses board pribadi Anda (Sesi unlimited)."}
+              Masukkan username dan password akun Anda untuk melanjutkan.
             </p>
           </div>
 
@@ -104,7 +97,8 @@ export default function LoginPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Masukkan username"
+                  autoComplete="username"
                   required
                   className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
                 />
@@ -122,6 +116,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   required
                   className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg focus:outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
                 />
@@ -131,50 +126,22 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 disabled:opacity-50 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-2xs mt-2"
+              className="w-full py-2.5 px-4 text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 disabled:opacity-50 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-2xs mt-2 cursor-pointer"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Memproses...</span>
+                  <span>Memverifikasi...</span>
                 </>
               ) : (
                 <>
-                  <span>{isRegisterMode ? "Daftar & Masuk" : "Login"}</span>
+                  <span>Masuk</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Mode Switch */}
-          <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>
-              {isRegisterMode ? "Sudah punya akun?" : "Ingin akun terpisah?"}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegisterMode(!isRegisterMode);
-                setError(null);
-              }}
-              className="font-medium text-zinc-900 dark:text-zinc-200 hover:underline"
-            >
-              {isRegisterMode ? "Login di sini" : "Daftar Baru"}
-            </button>
-          </div>
         </div>
-
-        {/* Localhost unlimited hint */}
-        <div className="mt-4 text-center">
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            Akun default lokal: <span className="font-mono text-zinc-600 dark:text-zinc-300 font-semibold">admin</span> / <span className="font-mono text-zinc-600 dark:text-zinc-300 font-semibold">admin123</span>
-          </p>
-          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-            Sesi unlimited tanpa kedaluwarsa untuk penggunaan localhost pribadi.
-          </p>
-        </div>
-
       </div>
     </main>
   );

@@ -21,12 +21,10 @@ export interface TaskParseResult {
 }
 
 const DEFAULT_MODELS: string[] = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-3.1-flash",
-  "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-flash-lite",
 ];
 
 const MODEL_TIMEOUT_MS = 12000; // 12 seconds per model attempt
@@ -219,7 +217,7 @@ Kembalikan HANYA JSON murni tanpa markdown wrapper.`;
 
       // Normalize tags
       const tags = Array.isArray(data.tags)
-        ? data.tags.map((t: any) => String(t).trim()).filter(Boolean)
+        ? data.tags.map((t: unknown) => String(t).trim()).filter(Boolean)
         : [];
 
       // Normalize multiple_tasks
@@ -234,11 +232,11 @@ Kembalikan HANYA JSON murni tanpa markdown wrapper.`;
           normalizedMulti.push({
             title: String(item.title).trim(),
             description: String(item.description || "").trim(),
-            priority: itemPri as any,
+            priority: itemPri as ParsedTaskItem["priority"],
             deadline: item.deadline || null,
             category: String(item.category || "Kuliah").trim(),
             tags: Array.isArray(item.tags)
-              ? item.tags.map((t: any) => String(t).trim()).filter(Boolean)
+              ? item.tags.map((t: unknown) => String(t).trim()).filter(Boolean)
               : [],
           });
         }
@@ -249,15 +247,15 @@ Kembalikan HANYA JSON murni tanpa markdown wrapper.`;
       return {
         title: String(data.title).trim(),
         description: String(data.description || "").trim(),
-        priority: priority as any,
+        priority: priority as TaskParseResult["priority"],
         deadline: data.deadline || null,
         category: String(data.category || "Umum").trim(),
         tags,
         multiple_tasks: normalizedMulti,
         model_used: modelName,
       };
-    } catch (err: any) {
-      const errMsg = err?.message || String(err);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.warn(`[Next.js AI] Model '${modelName}' gagal: ${errMsg}`);
       attemptErrors.push(`${modelName}: ${errMsg}`);
     }

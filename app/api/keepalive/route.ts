@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 async function handleKeepalive(req: Request) {
   const startTime = Date.now();
 
-  // Verify CRON_SECRET if configured in environment
+  // Verify CRON_SECRET in environment
   const expectedSecret = process.env.CRON_SECRET;
   if (expectedSecret && expectedSecret.trim()) {
     const authHeader = req.headers.get("authorization");
@@ -19,6 +19,11 @@ async function handleKeepalive(req: Request) {
         { status: 401 }
       );
     }
+  } else if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Unauthorized: CRON_SECRET must be configured in production" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -40,13 +45,14 @@ async function handleKeepalive(req: Request) {
       durationMs: `${durationMs}ms`,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error("[Keepalive Error]:", error);
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("[Keepalive Error]:", errMsg);
     return NextResponse.json(
       {
         status: "error",
         message: "Failed to ping database",
-        error: error.message || String(error),
+        error: errMsg,
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

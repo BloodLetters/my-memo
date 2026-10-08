@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Loader2, ArrowRight, Check, X, Calendar, AlertCircle } from "lucide-react";
-import { TaskPriority, TaskStatus } from "@/lib/types";
+import { Sparkles, Loader2, Check, X, AlertCircle } from "lucide-react";
+import { TaskPriority } from "@/lib/types";
 
 interface AiTaskModalProps {
   isOpen: boolean;

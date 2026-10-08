@@ -184,8 +184,8 @@ export default function TaskModal({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Gagal menyimpan tugas.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan tugas.");
     } finally {
       setIsSubmitting(false);
     }

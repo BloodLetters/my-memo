@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getTasks, createTask } from "@/services/taskService";
+import { getTasks, createTask, TaskFilterOptions } from "@/services/taskService";
 
 export async function GET(req: Request) {
   try {
@@ -14,8 +14,14 @@ export async function GET(req: Request) {
     const priority = searchParams.get("priority") || undefined;
     const category = searchParams.get("category") || undefined;
     const isArchivedParam = searchParams.get("isArchived");
-    const sortBy = (searchParams.get("sortBy") as any) || undefined;
-    const sortOrder = (searchParams.get("sortOrder") as any) || undefined;
+    const rawSortBy = searchParams.get("sortBy");
+    const sortBy = (rawSortBy === "deadline" || rawSortBy === "priority" || rawSortBy === "order" || rawSortBy === "createdAt")
+      ? (rawSortBy as TaskFilterOptions["sortBy"])
+      : undefined;
+    const rawSortOrder = searchParams.get("sortOrder");
+    const sortOrder = (rawSortOrder === "asc" || rawSortOrder === "desc")
+      ? (rawSortOrder as TaskFilterOptions["sortOrder"])
+      : undefined;
 
     let isArchived: boolean | undefined = undefined;
     if (isArchivedParam !== null) {
@@ -32,10 +38,11 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ tasks });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal mengambil daftar tugas.";
     console.error("GET /api/tasks error:", error);
     return NextResponse.json(
-      { error: "Gagal mengambil daftar tugas." },
+      { error: errMsg },
       { status: 500 }
     );
   }
@@ -68,10 +75,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ task: newTask }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal menambahkan tugas baru.";
     console.error("POST /api/tasks error:", error);
     return NextResponse.json(
-      { error: "Gagal menambahkan tugas baru." },
+      { error: errMsg },
       { status: 500 }
     );
   }

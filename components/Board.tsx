@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
-import { Plus, Check, X, FolderPlus } from "lucide-react";
+import { Check, FolderPlus } from "lucide-react";
 import { BoardCategoryItem, TaskItem } from "@/lib/types";
 import Column from "./Column";
+
+const emptySubscribe = () => () => {};
+const useMounted = () => useSyncExternalStore(emptySubscribe, () => true, () => false);
 
 interface BoardProps {
   categories: BoardCategoryItem[];
@@ -31,13 +34,9 @@ export default function Board({
   onRenameCategory,
   onDeleteCategory,
 }: BoardProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const getCategoryTasks = (categoryName: string) => {
     return tasks
@@ -49,7 +48,6 @@ export default function Board({
     const { source, destination, draggableId } = result;
 
     if (!destination) return;
-
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
@@ -67,11 +65,11 @@ export default function Board({
     const movedTask = { ...currentTasks[movedTaskIndex] };
 
     // Separate tasks by category
-    let sourceColTasks = currentTasks
+    const sourceColTasks = currentTasks
       .filter((t) => t.category === sourceCategory && t.id !== draggableId)
       .sort((a, b) => a.order - b.order);
 
-    let destColTasks =
+    const destColTasks =
       sourceCategory === destCategory
         ? sourceColTasks
         : currentTasks

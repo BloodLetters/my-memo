@@ -11,10 +11,11 @@ export async function GET() {
 
     const categories = await getCategories(user.id);
     return NextResponse.json({ categories });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal mengambil daftar kategori.";
     console.error("GET /api/categories error:", error);
     return NextResponse.json(
-      { error: "Gagal mengambil daftar kategori." },
+      { error: errMsg },
       { status: 500 }
     );
   }
@@ -37,10 +38,11 @@ export async function POST(req: Request) {
 
     const category = await createCategory(user.id, name.trim());
     return NextResponse.json({ category }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "Gagal membuat kategori baru.";
     console.error("POST /api/categories error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal membuat kategori baru." },
+      { error: errMsg },
       { status: 500 }
     );
   }
