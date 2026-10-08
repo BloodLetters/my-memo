@@ -1,0 +1,20 @@
+# Vercel Deployment Ignore
+ai-backend/
+data/
+*.db
+*.db-journal
+requirements.txt
+models.json
+.git
+.github
+*.py
+*.pyc
+__pycache__/
+.venv/
+scratch/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.log

@@ -1,0 +1,48 @@
+name: Turso Database Keepalive
+
+on:
+  schedule:
+    # Berjalan setiap malam jam 02:00 WIB (19:00 UTC)
+    - cron: '0 19 * * *'
+  # Memungkinkan untuk dijalankan secara manual dari tab Actions di GitHub
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    name: Ping Database & App Keepalive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping MyMemo Web App Keepalive Endpoint
+        if: "${{ env.APP_URL != '' }}"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "Sending keepalive ping to Web App: $APP_URL/api/keepalive"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$APP_URL/api/keepalive" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-key: $CRON_SECRET" \
+            --max-time 30 || true)
+          echo "Response HTTP Status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Keepalive Web App ping successful!"
+          else
+            echo "⚠️ Web App keepalive returned $STATUS (masih berlanjut ke backup ping direct Turso jika ada)"
+          fi
+
+      - name: Direct Ping to Turso LibSQL Database
+        if: "${{ env.TURSO_DATABASE_URL != '' && env.TURSO_AUTH_TOKEN != '' }}"
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          echo "Sending direct SQL keepalive ping to Turso Database..."
+          # Convert libsql:// to https://
+          HTTP_TURSO_URL=$(echo "$TURSO_DATABASE_URL" | sed 's|libsql://|https://|')
+          RESPONSE=$(curl -s -X POST "$HTTP_TURSO_URL/v2/pipeline" \
+            -H "Authorization: Bearer $TURSO_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"requests": [{"type": "execute", "stmt": {"sql": "SELECT 1;"}}, {"type": "close"}]}' \
+            --max-time 20 || true)
+          echo "Turso Response: $RESPONSE"
+          echo "✅ Turso database is active and awake!"
