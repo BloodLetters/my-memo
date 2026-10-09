@@ -146,6 +146,40 @@
       </div>
     </div>
 
+    <!-- DETAIL QUEST MODAL -->
+    <div id="detailModal" class="pixel-modal-backdrop" style="display: none;">
+      <div class="pixel-modal-card">
+        <div class="pixel-modal-header" data-tauri-drag-region>
+          <div class="modal-header-title" data-tauri-drag-region>
+            <span class="modal-icon" data-tauri-drag-region>📜</span>
+            <span data-tauri-drag-region>DETAIL QUEST</span>
+          </div>
+          <button id="closeDetailBtn" class="retro-btn icon-btn close-btn" title="Tutup Detail">✕</button>
+        </div>
+
+        <div class="pixel-modal-body" id="detailModalBody">
+          <!-- Diisi otomatis melalui JS -->
+        </div>
+
+        <div class="pixel-modal-footer">
+          <button id="detailToggleStatusBtn" class="retro-btn modal-action-btn">✔ SELESAI</button>
+          <button id="detailToggleArchiveBtn" class="retro-btn modal-action-btn">📦 ARSIP</button>
+          <button id="detailCloseBtn" class="retro-btn modal-close-btn">TUTUP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULLSCREEN IMAGE LIGHTBOX MODAL -->
+    <div id="imageLightbox" class="pixel-lightbox-backdrop" style="display: none;">
+      <div class="lightbox-header">
+        <span class="lightbox-title">🔍 PREVIEW GAMBAR</span>
+        <button id="closeLightboxBtn" class="retro-btn icon-btn close-btn" title="Tutup Preview">✕</button>
+      </div>
+      <div class="lightbox-body" id="lightboxBody">
+        <img id="lightboxImg" src="" alt="Full Preview" />
+      </div>
+    </div>
+
     <!-- RETRO PIXEL CONTEXT MENU -->
     <div id="contextMenu" class="pixel-context-menu" style="display: none;">
       <div class="menu-item" id="ctxToggleMode">🖥️ Mode: Nempel di Desktop</div>

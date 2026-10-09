@@ -54,6 +54,22 @@ const loginErrorMsg = document.getElementById("loginErrorMsg");
 const loginDot = document.getElementById("loginDot");
 const loginServerStatus = document.getElementById("loginServerStatus");
 
+// Detail Modal Elements
+const detailModal = document.getElementById("detailModal");
+const closeDetailBtn = document.getElementById("closeDetailBtn");
+const detailModalBody = document.getElementById("detailModalBody");
+const detailToggleStatusBtn = document.getElementById("detailToggleStatusBtn");
+const detailToggleArchiveBtn = document.getElementById("detailToggleArchiveBtn");
+const detailCloseBtn = document.getElementById("detailCloseBtn");
+
+// Lightbox Elements
+const imageLightbox = document.getElementById("imageLightbox");
+const closeLightboxBtn = document.getElementById("closeLightboxBtn");
+const lightboxImg = document.getElementById("lightboxImg");
+const lightboxBody = document.getElementById("lightboxBody");
+
+let activeDetailTask = null;
+
 // Context Menu Elements
 const contextMenu = document.getElementById("contextMenu");
 const ctxToggleMode = document.getElementById("ctxToggleMode");
@@ -541,6 +557,169 @@ function formatDeadline(isoString) {
 }
 
 // ========================================================
+// TASK DETAIL MODAL & IMAGE LIGHTBOX CONTROLLER
+// ========================================================
+function openTaskDetail(task) {
+  activeDetailTask = task;
+  playSound("blip");
+
+  const isDone = task.status === "DONE";
+  const isArchive = Boolean(task.isArchived);
+
+  let fullDeadlineText = "Tidak ada deadline";
+  if (task.deadline) {
+    try {
+      const d = new Date(task.deadline);
+      fullDeadlineText = d.toLocaleString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      fullDeadlineText = task.deadline;
+    }
+  }
+
+  // Image block
+  let imageBlock = "";
+  if (task.imageUrl && task.imageUrl.trim()) {
+    let imgUrl = task.imageUrl.trim();
+    if (imgUrl.startsWith("/")) {
+      imgUrl = `${PROD_API_HOST}${imgUrl}`;
+    }
+    imageBlock = `
+      <div class="detail-section">
+        <span class="detail-label">LAMPIRAN GAMBAR:</span>
+        <div class="detail-image-box" id="detailImgBox" title="Klik untuk memperbesar gambar">
+          <img src="${escapeHtml(imgUrl)}" alt="Gambar Task" class="detail-image" />
+          <span class="detail-image-hint">🔍 KLIK UNTUK FULL SCREEN</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Tags block
+  let tagsBlock = "";
+  if (task.tags && task.tags.length > 0) {
+    tagsBlock = `
+      <div class="detail-section">
+        <span class="detail-label">TAGS:</span>
+        <div class="detail-tags">
+          ${task.tags.map((t) => `<span class="detail-tag-chip">#${escapeHtml(t)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  detailModalBody.innerHTML = `
+    <div class="detail-title">${escapeHtml(task.title)}</div>
+
+    <div class="detail-badges-row">
+      <span class="badge priority-${task.priority}">PRIORITAS: ${task.priority}</span>
+      <span class="badge category">🏷️ ${escapeHtml(task.category || "Umum")}</span>
+      <span class="badge status" style="background:#221f38; color:#fff;">📌 ${isDone ? "STATUS: SELESAI" : "STATUS: BELUM SELESAI"}</span>
+    </div>
+
+    <div class="detail-section">
+      <span class="detail-label">DEADLINE:</span>
+      <div style="font-size: 11px; color: var(--color-cyan); font-family: var(--font-pixel);">
+        ⏰ ${escapeHtml(fullDeadlineText)}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <span class="detail-label">DESKRIPSI:</span>
+      <div class="detail-description-box ${!task.description?.trim() ? "empty" : ""}">
+        ${task.description?.trim() ? escapeHtml(task.description) : "(Tidak ada catatan / deskripsi)"}
+      </div>
+    </div>
+
+    ${imageBlock}
+    ${tagsBlock}
+  `;
+
+  // Update button labels in footer
+  if (detailToggleStatusBtn) {
+    detailToggleStatusBtn.style.display = isArchive ? "none" : "inline-flex";
+    detailToggleStatusBtn.textContent = isDone ? "↩ BELUM SELESAI" : "✔ SELESAI";
+  }
+
+  if (detailToggleArchiveBtn) {
+    detailToggleArchiveBtn.textContent = isArchive ? "↩ RESTORE" : "📦 ARSIP";
+  }
+
+  // Click on image inside detail modal opens lightbox
+  const imgBox = detailModalBody.querySelector("#detailImgBox");
+  if (imgBox) {
+    imgBox.addEventListener("click", () => {
+      let imgUrl = task.imageUrl.trim();
+      if (imgUrl.startsWith("/")) imgUrl = `${PROD_API_HOST}${imgUrl}`;
+      openImageLightbox(imgUrl);
+    });
+  }
+
+  detailModal.style.display = "flex";
+}
+
+function closeTaskDetail() {
+  activeDetailTask = null;
+  detailModal.style.display = "none";
+  playSound("blip");
+}
+
+function openImageLightbox(url) {
+  playSound("blip");
+  lightboxImg.src = url;
+  imageLightbox.style.display = "flex";
+}
+
+function closeImageLightbox() {
+  imageLightbox.style.display = "none";
+  lightboxImg.src = "";
+  playSound("blip");
+}
+
+// Modal Listeners
+if (closeDetailBtn) closeDetailBtn.addEventListener("click", closeTaskDetail);
+if (detailCloseBtn) detailCloseBtn.addEventListener("click", closeTaskDetail);
+if (detailModal) {
+  detailModal.addEventListener("click", (e) => {
+    if (e.target === detailModal) closeTaskDetail();
+  });
+}
+
+if (detailToggleStatusBtn) {
+  detailToggleStatusBtn.addEventListener("click", async () => {
+    if (!activeDetailTask) return;
+    const task = activeDetailTask;
+    await toggleTaskStatus(task);
+    openTaskDetail(task);
+  });
+}
+
+if (detailToggleArchiveBtn) {
+  detailToggleArchiveBtn.addEventListener("click", async () => {
+    if (!activeDetailTask) return;
+    const task = activeDetailTask;
+    const shouldArchive = !task.isArchived;
+    closeTaskDetail();
+    await toggleArchiveTask(task, shouldArchive);
+  });
+}
+
+if (closeLightboxBtn) closeLightboxBtn.addEventListener("click", closeImageLightbox);
+if (imageLightbox) {
+  imageLightbox.addEventListener("click", (e) => {
+    if (e.target === imageLightbox || e.target === lightboxBody || e.target === lightboxImg) {
+      closeImageLightbox();
+    }
+  });
+}
+
+// ========================================================
 // RENDER QUEST / TASK LIST (2 CATEGORIES: TASK & ARCHIVE)
 // ========================================================
 function renderTasks() {
@@ -564,6 +743,7 @@ function renderTasks() {
     const isDone = task.status === "DONE";
     const card = document.createElement("div");
     card.className = `quest-card ${isDone ? "done" : ""} ${isArchiveView ? "archived" : ""}`;
+    card.style.cursor = "pointer";
 
     const deadlineInfo = formatDeadline(task.deadline);
 
@@ -581,6 +761,7 @@ function renderTasks() {
             alt="Preview Gambar" 
             class="quest-image" 
             loading="lazy" 
+            title="Klik untuk melihat full gambar"
             onerror="this.parentElement.style.display='none'"
           />
         </div>
@@ -621,7 +802,10 @@ function renderTasks() {
     // Toggle Checkbox event (khusus tab Task aktif)
     const chk = card.querySelector(".pixel-checkbox");
     if (!isArchiveView) {
-      chk.addEventListener("click", () => toggleTaskStatus(task));
+      chk.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleTaskStatus(task);
+      });
     }
 
     // Toggle Archive / Restore
@@ -632,6 +816,23 @@ function renderTasks() {
         toggleArchiveTask(task, !isArchiveView);
       });
     }
+
+    // Klik kartu untuk membuka Task Detail Modal
+    card.addEventListener("click", (e) => {
+      // Abaikan jika klik checkbox atau tombol archive
+      if (e.target.closest(".pixel-checkbox") || e.target.closest("[data-action]")) {
+        return;
+      }
+      // Jika klik langsung pada gambar thumbnail di kartu, buka lightbox full screen
+      if (e.target.classList.contains("quest-image")) {
+        e.stopPropagation();
+        let imgUrl = task.imageUrl.trim();
+        if (imgUrl.startsWith("/")) imgUrl = `${PROD_API_HOST}${imgUrl}`;
+        openImageLightbox(imgUrl);
+        return;
+      }
+      openTaskDetail(task);
+    });
 
     questList.appendChild(card);
   });
