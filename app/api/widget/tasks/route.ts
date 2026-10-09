@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, ensureDefaultUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getTasks, updateTask, createTask, TaskPriority } from "@/services/taskService";
+import { getTasks, updateTask, createTask, getCategories } from "@/services/taskService";
+import { TaskPriority } from "@/lib/types";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,18 +52,29 @@ export async function GET(req: Request) {
     const priority = searchParams.get("priority") || undefined;
     const category = searchParams.get("category") || undefined;
 
-    const tasks = await getTasks(user.id, {
-      search,
-      priority,
-      category,
-      isArchived: false,
-      sortBy: "deadline",
-      sortOrder: "asc",
-    });
+    const [tasks, archivedTasks] = await Promise.all([
+      getTasks(user.id, {
+        search,
+        priority,
+        category,
+        isArchived: false,
+        sortBy: "deadline",
+        sortOrder: "asc",
+      }),
+      getTasks(user.id, {
+        search,
+        priority,
+        category,
+        isArchived: true,
+        sortBy: "deadline",
+        sortOrder: "asc",
+      }),
+    ]);
 
     return NextResponse.json(
       {
         tasks,
+        archivedTasks,
         user: {
           id: user.id,
           username: user.username,
@@ -88,7 +100,7 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { id, status, priority, title } = body;
+    const { id, status, priority, title, isArchived } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -101,6 +113,7 @@ export async function PATCH(req: Request) {
       status,
       priority: priority as TaskPriority,
       title,
+      isArchived,
     });
 
     return NextResponse.json({ task: updated }, { headers: corsHeaders });

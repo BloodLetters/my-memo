@@ -1,4 +1,5 @@
 # Vercel Deployment Ignore
+widget/
 ai-backend/
 data/
 *.db

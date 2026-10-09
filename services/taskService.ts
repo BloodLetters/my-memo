@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { BoardCategoryItem, TaskItem, TaskPriority } from "@/lib/types";
 
+export type { TaskPriority };
+
 export interface TaskFilterOptions {
   search?: string;
   priority?: string;

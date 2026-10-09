@@ -18,13 +18,18 @@ Widget desktop bertema **Retro Pixel Art 8-bit / 16-bit RPG** yang melayang (*Al
 
 ## 🚀 Cara Menjalankan
 
-### 1. Jalankan Backend MyMemo (Terminal 1)
+### 1. Install Dependencies Widget (Pertama Kali Saja)
+```bash
+npm run widget:install
+```
+
+### 2. Jalankan Backend MyMemo (Terminal 1)
 Pastikan server Next.js MyMemo sedang berjalan:
 ```bash
 npm run dev
 ```
 
-### 2. Jalankan Pixel Widget (Terminal 2)
+### 3. Jalankan Pixel Widget (Terminal 2)
 Di root project:
 ```bash
 npm run widget:dev

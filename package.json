@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
+    "widget:install": "npm --prefix widget install",
     "widget:dev": "npm --prefix widget run dev",
     "widget:build": "npm --prefix widget run build",
     "widget:build:exe": "npm --prefix widget run build:exe"

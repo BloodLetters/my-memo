@@ -23,31 +23,31 @@
       </div>
       <div class="header-controls">
         <button id="lockBtn" class="retro-btn icon-btn" title="Kunci Posisi Widget">🔓</button>
-        <button id="modeBtn" class="retro-btn icon-btn active" title="Mode: Tertempel di Desktop (Rainmeter)">🖥️</button>
+        <button id="modeBtn" class="retro-btn icon-btn" title="Mode: Tertempel di Desktop / Always on Top">📌</button>
         <button id="menuBtn" class="retro-btn icon-btn" title="Menu Opsi">⚙</button>
+        <button id="closeBtn" class="retro-btn icon-btn close-btn" title="Tutup Widget">✕</button>
       </div>
     </header>
 
-    <!-- EXP & STATUS HUD BAR -->
+    <!-- STATUS BAR (MASCOT & TASK / ARCHIVE COUNTS) -->
     <div class="hud-bar">
       <div class="player-info">
         <span class="player-avatar" id="mascotAvatar">🐱</span>
-        <div class="player-details">
-          <div class="player-name" id="playerName">LV.1 QUEST LOG</div>
-          <div class="exp-bar-container">
-            <div class="exp-bar-fill" id="expFill" style="width: 0%;"></div>
-          </div>
+        <div class="stat-counts">
+          <span class="stat-badge stat-task" id="taskCountBadge">0 TASK</span>
+          <span class="stat-sep">•</span>
+          <span class="stat-badge stat-archive" id="archiveCountBadge">0 ARCHIVE</span>
         </div>
       </div>
-      <div class="exp-text" id="expText">0/0 XP</div>
+      <div class="hud-right">
+        <button id="refreshBtn" class="retro-btn icon-btn" title="Refresh dari Vercel Production">↻</button>
+      </div>
     </div>
 
-    <!-- FILTER TABS -->
-    <div class="filter-tabs">
-      <button class="tab-btn active" data-tab="ALL">ALL</button>
-      <button class="tab-btn" data-tab="TODO">TODO</button>
-      <button class="tab-btn" data-tab="IN_PROGRESS">DOING</button>
-      <button class="tab-btn" data-tab="DONE">DONE</button>
+    <!-- 2 CATEGORIES ONLY: TASK & ARCHIVE -->
+    <div class="filter-tabs two-tabs">
+      <button class="tab-btn active" data-tab="TASK">📋 TASK</button>
+      <button class="tab-btn" data-tab="ARCHIVE">📦 ARCHIVE</button>
     </div>
 
     <!-- QUEST LIST CONTAINER -->
@@ -66,7 +66,7 @@
           type="text" 
           id="taskInput" 
           class="retro-input" 
-          placeholder="Tambah quest..." 
+          placeholder="Tambah task..." 
           autocomplete="off"
         />
         <select id="prioritySelect" class="retro-select" title="Prioritas">
@@ -80,9 +80,8 @@
       <div class="footer-meta">
         <div class="sync-status" id="syncStatus">
           <span class="status-dot green"></span>
-          <span id="syncText">SYNCED</span>
+          <span id="syncText">VERCEL LIVE</span>
         </div>
-        <button id="refreshBtn" class="retro-btn text-btn" title="Refresh Data">↻ REFRESH</button>
       </div>
     </footer>
 

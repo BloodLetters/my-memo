@@ -1,20 +1,27 @@
 // ========================================================
 // PIXEL MEMO WIDGET CLIENT CONTROLLER (RAINMETER DESKTOP STYLE)
-// Communicates with MyMemo Next.js API & Tauri Window Controls
+// Communicates with MyMemo Next.js Vercel Production API & Tauri Controls
 // ========================================================
 
-const API_BASE = "http://localhost:3000/api/widget/tasks";
-let tasks = [];
-let activeTab = "ALL";
-let isDesktopPinned = true; // Default: tertempel di desktop (Rainmeter)
+const PROD_API_HOST = "https://memo-ash.vercel.app";
+const PROD_API_URL = "https://memo-ash.vercel.app/api/widget/tasks";
+const LOCAL_API_URL = "http://localhost:3000/api/widget/tasks";
+
+// Primary API endpoint is Vercel Production
+let activeApiUrl = PROD_API_URL;
+let activeHost = PROD_API_HOST;
+
+let tasks = [];          // Active tasks
+let archivedTasks = [];  // Archived tasks
+let activeTab = "TASK";  // 2 categories: "TASK" and "ARCHIVE"
+let isDesktopPinned = false;
 let isLocked = false;
 let isSoundEnabled = true;
 
 // DOM Elements
 const questList = document.getElementById("questList");
-const playerName = document.getElementById("playerName");
-const expFill = document.getElementById("expFill");
-const expText = document.getElementById("expText");
+const taskCountBadge = document.getElementById("taskCountBadge");
+const archiveCountBadge = document.getElementById("archiveCountBadge");
 const mascotAvatar = document.getElementById("mascotAvatar");
 const syncStatus = document.getElementById("syncStatus");
 const syncText = document.getElementById("syncText");
@@ -25,6 +32,7 @@ const refreshBtn = document.getElementById("refreshBtn");
 const lockBtn = document.getElementById("lockBtn");
 const modeBtn = document.getElementById("modeBtn");
 const menuBtn = document.getElementById("menuBtn");
+const closeBtn = document.getElementById("closeBtn");
 const dragHeader = document.getElementById("dragHeader");
 const tabButtons = document.querySelectorAll(".tab-btn");
 
@@ -106,12 +114,8 @@ async function invokeTauri(command, args = {}) {
   }
 }
 
-// Set initial desktop mode
-invokeTauri("set_desktop_pinned", { pinned: true });
-
-// Toggle Desktop Pin vs Always-on-Top
-async function toggleDesktopMode() {
-  isDesktopPinned = !isDesktopPinned;
+// Mode UI Update Helper
+function updateModeUI() {
   modeBtn.classList.toggle("active", isDesktopPinned);
   modeBtn.textContent = isDesktopPinned ? "🖥️" : "📌";
   modeBtn.title = isDesktopPinned
@@ -120,6 +124,29 @@ async function toggleDesktopMode() {
   ctxToggleMode.textContent = isDesktopPinned
     ? "🖥️ Mode: Nempel di Desktop"
     : "📌 Mode: Always on Top";
+}
+
+// Sync initial window mode from saved state
+async function initWindowState() {
+  try {
+    const state = await invokeTauri("get_saved_window_state");
+    if (state && typeof state.pinned === "boolean") {
+      isDesktopPinned = state.pinned;
+    } else {
+      isDesktopPinned = false; // Default: Floating Always on Top
+    }
+  } catch (e) {
+    isDesktopPinned = false;
+  }
+  updateModeUI();
+  await invokeTauri("set_desktop_pinned", { pinned: isDesktopPinned });
+}
+initWindowState();
+
+// Toggle Desktop Pin vs Always-on-Top
+async function toggleDesktopMode() {
+  isDesktopPinned = !isDesktopPinned;
+  updateModeUI();
   playSound("blip");
   await invokeTauri("set_desktop_pinned", { pinned: isDesktopPinned });
 }
@@ -130,6 +157,41 @@ ctxToggleMode.addEventListener("click", () => {
   hideContextMenu();
 });
 
+// Window Dragging Handlers
+function setupDragHandling() {
+  const handleDrag = (e) => {
+    // Abaikan jika mengklik kontrol interaktif (tombol, input, dropdown)
+    if (e.target.closest("button") || e.target.closest("input") || e.target.closest("select")) {
+      return;
+    }
+    // Hanya drag dengan klik kiri dan saat tidak di-lock
+    if (e.button === 0 && !isLocked) {
+      invokeTauri("start_drag");
+    }
+  };
+
+  dragHeader.addEventListener("mousedown", handleDrag);
+
+  const hudBar = document.querySelector(".hud-bar");
+  if (hudBar) {
+    hudBar.addEventListener("mousedown", handleDrag);
+  }
+}
+setupDragHandling();
+
+// Save window position on beforeunload
+window.addEventListener("beforeunload", () => {
+  invokeTauri("save_window_position");
+});
+
+// Close button in titlebar
+if (closeBtn) {
+  closeBtn.addEventListener("click", () => {
+    playSound("blip");
+    invokeTauri("close_widget");
+  });
+}
+
 // Lock / Unlock Drag Region
 function toggleLockPosition() {
   isLocked = !isLocked;
@@ -137,6 +199,11 @@ function toggleLockPosition() {
   lockBtn.title = isLocked ? "Buka Kunci Posisi" : "Kunci Posisi Widget";
   ctxToggleLock.textContent = isLocked ? "🔒 Buka Kunci Posisi" : "🔓 Kunci Posisi (Lock)";
   dragHeader.classList.toggle("locked", isLocked);
+
+  const hudBar = document.querySelector(".hud-bar");
+  if (hudBar) {
+    hudBar.classList.toggle("locked", isLocked);
+  }
 
   // Set drag attributes
   if (isLocked) {
@@ -226,23 +293,49 @@ ctxRefresh.addEventListener("click", () => {
 async function fetchTasks() {
   try {
     syncText.textContent = "SYNCING...";
-    const res = await fetch(API_BASE, { cache: "no-store" });
-    if (!res.ok) {
-      throw new Error(`Server returned status ${res.status}`);
+    let res;
+    try {
+      res = await fetch(activeApiUrl, { cache: "no-store" });
+      if (!res.ok && activeApiUrl === PROD_API_URL) {
+        // Fallback ke local dev jika endpoint production Vercel belum tersedia
+        console.warn(`Production API ${res.status}, mencoba fallback ke localhost...`);
+        const localRes = await fetch(LOCAL_API_URL, { cache: "no-store" });
+        if (localRes.ok) {
+          res = localRes;
+          syncText.textContent = "LOCAL (PROD SYNCING)";
+        }
+      }
+    } catch (netErr) {
+      console.warn("Network issue with prod, trying local:", netErr);
+      res = await fetch(LOCAL_API_URL, { cache: "no-store" });
+      syncText.textContent = "LOCAL";
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`Server returned status ${res?.status || "offline"}`);
     }
 
     const data = await res.json();
-    tasks = data.tasks || [];
 
-    if (data.user?.username) {
-      playerName.textContent = `PLAYER: ${data.user.username.toUpperCase()}`;
+    // Pisahkan active tasks dan archived tasks
+    if (data.archivedTasks) {
+      tasks = data.tasks || [];
+      archivedTasks = data.archivedTasks || [];
+    } else {
+      const allTasks = data.tasks || [];
+      tasks = allTasks.filter((t) => !t.isArchived);
+      archivedTasks = allTasks.filter((t) => t.isArchived);
     }
 
     updateHud();
     renderTasks();
 
     syncStatus.querySelector(".status-dot").className = "status-dot green";
-    syncText.textContent = "ONLINE";
+    if (res.url && res.url.includes("vercel.app")) {
+      syncText.textContent = "VERCEL LIVE";
+    } else if (syncText.textContent === "SYNCING...") {
+      syncText.textContent = "ONLINE";
+    }
   } catch (err) {
     console.warn("Failed to sync tasks:", err);
     syncStatus.querySelector(".status-dot").className = "status-dot red";
@@ -251,25 +344,45 @@ async function fetchTasks() {
   }
 }
 
+// Update Text Jumlah Task & Archive
 function updateHud() {
-  const total = tasks.length;
-  const doneCount = tasks.filter((t) => t.status === "DONE").length;
-  const percent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+  const taskCount = tasks.length;
+  const archiveCount = archivedTasks.length;
 
-  expFill.style.width = `${percent}%`;
-  expText.textContent = `${doneCount}/${total} XP (${percent}%)`;
+  if (taskCountBadge) taskCountBadge.textContent = `${taskCount} TASK`;
+  if (archiveCountBadge) archiveCountBadge.textContent = `${archiveCount} ARCHIVE`;
 
   const hasUrgent = tasks.some(
     (t) => t.status !== "DONE" && (t.priority === "URGENT" || t.priority === "HIGH")
   );
 
-  if (total > 0 && doneCount === total) {
+  if (taskCount === 0 && archiveCount > 0) {
     mascotAvatar.textContent = "😺";
   } else if (hasUrgent) {
     mascotAvatar.textContent = "🙀";
   } else {
     mascotAvatar.textContent = "🐱";
   }
+}
+
+// Sort Berdasarkan Waktu Deadline Terdekat (Terdekat di Atas)
+function sortByClosestDeadline(list) {
+  return [...list].sort((a, b) => {
+    const timeA = a.deadline ? new Date(a.deadline).getTime() : null;
+    const timeB = b.deadline ? new Date(b.deadline).getTime() : null;
+
+    // Keduanya punya deadline: deadline lebih awal (terdekat) di atas
+    if (timeA !== null && timeB !== null) {
+      return timeA - timeB;
+    }
+    // Jika hanya A punya deadline, A ditaruh di atas
+    if (timeA !== null) return -1;
+    // Jika hanya B punya deadline, B ditaruh di atas
+    if (timeB !== null) return 1;
+
+    // Jika keduanya tanpa deadline, urutkan berdasarkan order/id
+    return (a.order || 0) - (b.order || 0);
+  });
 }
 
 function formatDeadline(isoString) {
@@ -298,59 +411,97 @@ function formatDeadline(isoString) {
 }
 
 // ========================================================
-// RENDER QUEST LIST
+// RENDER QUEST / TASK LIST (2 CATEGORIES: TASK & ARCHIVE)
 // ========================================================
 function renderTasks() {
   questList.innerHTML = "";
 
-  const filtered = tasks.filter((t) => {
-    if (activeTab === "ALL") return true;
-    if (activeTab === "TODO") return t.status === "TODO" || t.status === "BACKLOG";
-    if (activeTab === "IN_PROGRESS") return t.status === "IN_PROGRESS";
-    if (activeTab === "DONE") return t.status === "DONE";
-    return true;
-  });
+  const isArchiveView = activeTab === "ARCHIVE";
+  const currentList = isArchiveView ? archivedTasks : tasks;
+  const sortedList = sortByClosestDeadline(currentList);
 
-  if (filtered.length === 0) {
+  if (sortedList.length === 0) {
     questList.innerHTML = `
       <div class="empty-state">
-        <span class="empty-icon">⚔️</span>
-        <p>TIDAK ADA QUEST AKTIF</p>
+        <span class="empty-icon">${isArchiveView ? "📦" : "⚔️"}</span>
+        <p>${isArchiveView ? "BELUM ADA TASK DI-ARCHIVE" : "TIDAK ADA TASK AKTIF"}</p>
       </div>
     `;
     return;
   }
 
-  filtered.forEach((task) => {
+  sortedList.forEach((task) => {
     const isDone = task.status === "DONE";
     const card = document.createElement("div");
-    card.className = `quest-card ${isDone ? "done" : ""}`;
+    card.className = `quest-card ${isDone ? "done" : ""} ${isArchiveView ? "archived" : ""}`;
 
     const deadlineInfo = formatDeadline(task.deadline);
 
+    // Render Gambar jika ada (Requirement 3)
+    let imageHtml = "";
+    if (task.imageUrl && task.imageUrl.trim()) {
+      let imgUrl = task.imageUrl.trim();
+      if (imgUrl.startsWith("/")) {
+        imgUrl = `${PROD_API_HOST}${imgUrl}`;
+      }
+      imageHtml = `
+        <div class="quest-image-container">
+          <img 
+            src="${escapeHtml(imgUrl)}" 
+            alt="Preview Gambar" 
+            class="quest-image" 
+            loading="lazy" 
+            onerror="this.parentElement.style.display='none'"
+          />
+        </div>
+      `;
+    }
+
     card.innerHTML = `
       <div class="quest-header-row">
-        <div class="pixel-checkbox" data-id="${task.id}" title="${isDone ? 'Tandai Belum Selesai' : 'Tandai Selesai'}">
-          ${isDone ? "✔" : ""}
+        <div class="pixel-checkbox" data-id="${task.id}" title="${
+          isArchiveView
+            ? "Task di-archive"
+            : isDone
+            ? "Tandai Belum Selesai"
+            : "Tandai Selesai"
+        }">
+          ${isArchiveView ? "📦" : isDone ? "✔" : ""}
         </div>
         <div class="quest-content">
           <div class="quest-title">${escapeHtml(task.title)}</div>
+          ${imageHtml}
           <div class="quest-badges">
             <span class="badge priority-${task.priority}">${task.priority}</span>
-            <span class="badge category">#${escapeHtml(task.category || "Umum")}</span>
             ${
               deadlineInfo
                 ? `<span class="badge deadline ${deadlineInfo.isUrgent ? "urgent" : ""}">⏰ ${deadlineInfo.text}</span>`
                 : ""
+            }
+            ${
+              isArchiveView
+                ? `<button class="badge unarchive-btn" data-action="unarchive" title="Kembalikan ke Task">↩ RESTORE</button>`
+                : `<button class="badge archive-btn" data-action="archive" title="Pindahkan ke Archive">📦 ARCHIVE</button>`
             }
           </div>
         </div>
       </div>
     `;
 
-    // Toggle Checkbox event
+    // Toggle Checkbox event (khusus tab Task aktif)
     const chk = card.querySelector(".pixel-checkbox");
-    chk.addEventListener("click", () => toggleTaskStatus(task));
+    if (!isArchiveView) {
+      chk.addEventListener("click", () => toggleTaskStatus(task));
+    }
+
+    // Toggle Archive / Restore
+    const actionBtn = card.querySelector("[data-action]");
+    if (actionBtn) {
+      actionBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleArchiveTask(task, !isArchiveView);
+      });
+    }
 
     questList.appendChild(card);
   });
@@ -360,7 +511,7 @@ function showErrorState() {
   questList.innerHTML = `
     <div class="empty-state">
       <span class="empty-icon">📡</span>
-      <p>SERVER MY-MEMO OFFLINE<br><span style="font-size: 8px; color: #fe5b59;">Jalankan: npm run dev</span></p>
+      <p>SERVER OFFLINE / MENUNGGU DEPLOY<br><span style="font-size: 8px; color: #fe5b59;">Hubungkan ke memo-ash.vercel.app</span></p>
       <button class="retro-btn text-btn" id="retryBtn">COBA LAGI</button>
     </div>
   `;
@@ -368,7 +519,7 @@ function showErrorState() {
 }
 
 // ========================================================
-// TASK ACTIONS (TOGGLE & ADD)
+// TASK ACTIONS (TOGGLE, ARCHIVE & ADD)
 // ========================================================
 async function toggleTaskStatus(task) {
   const newStatus = task.status === "DONE" ? "TODO" : "DONE";
@@ -384,7 +535,7 @@ async function toggleTaskStatus(task) {
   renderTasks();
 
   try {
-    await fetch(API_BASE, {
+    await fetch(activeApiUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: task.id, status: newStatus }),
@@ -399,6 +550,25 @@ async function toggleTaskStatus(task) {
   }
 }
 
+async function toggleArchiveTask(task, shouldArchive) {
+  playSound("blip");
+  try {
+    const res = await fetch(activeApiUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: task.id,
+        isArchived: shouldArchive,
+      }),
+    });
+    if (res.ok) {
+      await fetchTasks();
+    }
+  } catch (err) {
+    console.error("Gagal update archive status:", err);
+  }
+}
+
 addForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = taskInput.value.trim();
@@ -410,14 +580,14 @@ addForm.addEventListener("submit", async (e) => {
 
   try {
     syncText.textContent = "MENYIMPAN...";
-    const res = await fetch(API_BASE, {
+    const res = await fetch(activeApiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title,
         priority,
-        category: "Tugas Pribadi",
         status: "TODO",
+        isArchived: false,
       }),
     });
 
@@ -429,21 +599,23 @@ addForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Tab Buttons Click
+// Tab Buttons Click (Hanya 2 kategori: TASK & ARCHIVE)
 tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     tabButtons.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
-    activeTab = btn.getAttribute("data-tab");
+    activeTab = btn.getAttribute("data-tab"); // "TASK" atau "ARCHIVE"
     playSound("blip");
     renderTasks();
   });
 });
 
-refreshBtn.addEventListener("click", () => {
-  playSound("blip");
-  fetchTasks();
-});
+if (refreshBtn) {
+  refreshBtn.addEventListener("click", () => {
+    playSound("blip");
+    fetchTasks();
+  });
+}
 
 function escapeHtml(text) {
   const div = document.createElement("div");
