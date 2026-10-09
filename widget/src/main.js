@@ -32,7 +32,6 @@ const refreshBtn = document.getElementById("refreshBtn");
 const lockBtn = document.getElementById("lockBtn");
 const modeBtn = document.getElementById("modeBtn");
 const menuBtn = document.getElementById("menuBtn");
-const closeBtn = document.getElementById("closeBtn");
 const dragHeader = document.getElementById("dragHeader");
 const tabButtons = document.querySelectorAll(".tab-btn");
 
@@ -291,14 +290,6 @@ setupDragHandling();
 window.addEventListener("beforeunload", () => {
   invokeTauri("save_window_position");
 });
-
-// Close button in titlebar
-if (closeBtn) {
-  closeBtn.addEventListener("click", () => {
-    playSound("blip");
-    invokeTauri("close_widget");
-  });
-}
 
 // Lock / Unlock Drag Region
 function toggleLockPosition() {
