@@ -106,6 +106,89 @@ fn set_widget_size(window: Window, width: f64, height: f64) -> Result<(), String
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn is_autostart_enabled() -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        // 1. Check Windows Registry Run key
+        let output = std::process::Command::new("reg")
+            .args(["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "Pixel Memo Widget"])
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                return Ok(true);
+            }
+        }
+
+        // 2. Check Windows Startup folder shortcut
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let lnk = std::path::PathBuf::from(appdata)
+                .join("Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Pixel Memo Widget.lnk");
+            if lnk.exists() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn set_autostart(enabled: bool) -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        if enabled {
+            let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let exe_str = current_exe.to_string_lossy();
+            let quoted_exe = format!("\"{}\"", exe_str);
+
+            let _ = std::process::Command::new("reg")
+                .args([
+                    "add",
+                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "/v",
+                    "Pixel Memo Widget",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &quoted_exe,
+                    "/f",
+                ])
+                .output()
+                .map_err(|e| e.to_string())?;
+
+            Ok(true)
+        } else {
+            let _ = std::process::Command::new("reg")
+                .args([
+                    "delete",
+                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "/v",
+                    "Pixel Memo Widget",
+                    "/f",
+                ])
+                .output();
+
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let lnk = std::path::PathBuf::from(appdata)
+                    .join("Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Pixel Memo Widget.lnk");
+                if lnk.exists() {
+                    let _ = std::fs::remove_file(lnk);
+                }
+            }
+
+            Ok(false)
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(false)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -141,7 +224,9 @@ pub fn run() {
             save_window_position,
             get_saved_window_state,
             set_desktop_pinned,
-            set_widget_size
+            set_widget_size,
+            is_autostart_enabled,
+            set_autostart
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

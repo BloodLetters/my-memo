@@ -74,6 +74,7 @@ const contextMenu = document.getElementById("contextMenu");
 const ctxToggleMode = document.getElementById("ctxToggleMode");
 const ctxToggleLock = document.getElementById("ctxToggleLock");
 const ctxToggleSound = document.getElementById("ctxToggleSound");
+const ctxToggleStartup = document.getElementById("ctxToggleStartup");
 const ctxRefresh = document.getElementById("ctxRefresh");
 const ctxLogout = document.getElementById("ctxLogout");
 const ctxClose = document.getElementById("ctxClose");
@@ -373,6 +374,43 @@ function toggleSound() {
   hideContextMenu();
 }
 ctxToggleSound.addEventListener("click", toggleSound);
+
+// Startup / Autostart Toggle
+let isStartupEnabled = false;
+
+async function checkStartupState() {
+  try {
+    const enabled = await invokeTauri("is_autostart_enabled");
+    isStartupEnabled = Boolean(enabled);
+    updateStartupUI();
+  } catch (err) {
+    console.warn("Failed to check autostart state:", err);
+  }
+}
+
+function updateStartupUI() {
+  if (ctxToggleStartup) {
+    ctxToggleStartup.textContent = isStartupEnabled
+      ? "🚀 Buka saat PC Hidup (ON)"
+      : "🚀 Buka saat PC Hidup (OFF)";
+  }
+}
+
+if (ctxToggleStartup) {
+  ctxToggleStartup.addEventListener("click", async () => {
+    playSound("blip");
+    try {
+      const targetState = !isStartupEnabled;
+      await invokeTauri("set_autostart", { enabled: targetState });
+      isStartupEnabled = targetState;
+      updateStartupUI();
+    } catch (err) {
+      console.warn("Toggle autostart failed:", err);
+    }
+    hideContextMenu();
+  });
+}
+checkStartupState();
 
 // Close Widget (from context menu)
 ctxClose.addEventListener("click", () => {
