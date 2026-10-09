@@ -36,13 +36,105 @@ const closeBtn = document.getElementById("closeBtn");
 const dragHeader = document.getElementById("dragHeader");
 const tabButtons = document.querySelectorAll(".tab-btn");
 
+// Board Layout Elements
+const hudBar = document.getElementById("hudBar");
+const playerName = document.getElementById("playerName");
+const filterTabs = document.getElementById("filterTabs");
+const pixelFooter = document.getElementById("pixelFooter");
+
+// Login Elements
+const loginView = document.getElementById("loginView");
+const loginForm = document.getElementById("loginForm");
+const loginUsername = document.getElementById("loginUsername");
+const loginPassword = document.getElementById("loginPassword");
+const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+const loginBtnText = document.getElementById("loginBtnText");
+const loginError = document.getElementById("loginError");
+const loginErrorMsg = document.getElementById("loginErrorMsg");
+const loginDot = document.getElementById("loginDot");
+const loginServerStatus = document.getElementById("loginServerStatus");
+
 // Context Menu Elements
 const contextMenu = document.getElementById("contextMenu");
 const ctxToggleMode = document.getElementById("ctxToggleMode");
 const ctxToggleLock = document.getElementById("ctxToggleLock");
 const ctxToggleSound = document.getElementById("ctxToggleSound");
 const ctxRefresh = document.getElementById("ctxRefresh");
+const ctxLogout = document.getElementById("ctxLogout");
 const ctxClose = document.getElementById("ctxClose");
+
+// ========================================================
+// AUTH & SESSION STATE HELPERS
+// ========================================================
+const STORAGE_TOKEN_KEY = "mymemo_widget_token";
+const STORAGE_USER_KEY = "mymemo_widget_user";
+
+function getStoredToken() {
+  return localStorage.getItem(STORAGE_TOKEN_KEY) || "";
+}
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(STORAGE_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(token, user) {
+  if (token) localStorage.setItem(STORAGE_TOKEN_KEY, token);
+  if (user) localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+}
+
+function clearSession() {
+  localStorage.removeItem(STORAGE_TOKEN_KEY);
+  localStorage.removeItem(STORAGE_USER_KEY);
+}
+
+function getAuthHeaders(extra = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...extra,
+  };
+  const token = getStoredToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+    headers["x-session-token"] = token;
+  }
+  return headers;
+}
+
+function showLoginView(errorMessage = "") {
+  if (loginView) loginView.style.display = "flex";
+  if (hudBar) hudBar.style.display = "none";
+  if (filterTabs) filterTabs.style.display = "none";
+  if (questList) questList.style.display = "none";
+  if (pixelFooter) pixelFooter.style.display = "none";
+
+  if (loginError && loginErrorMsg) {
+    if (errorMessage) {
+      loginErrorMsg.textContent = errorMessage;
+      loginError.style.display = "flex";
+    } else {
+      loginError.style.display = "none";
+    }
+  }
+  if (loginUsername) setTimeout(() => loginUsername.focus(), 100);
+}
+
+function showMainView(user) {
+  if (loginView) loginView.style.display = "none";
+  if (hudBar) hudBar.style.display = "flex";
+  if (filterTabs) filterTabs.style.display = "flex";
+  if (questList) questList.style.display = "block";
+  if (pixelFooter) pixelFooter.style.display = "flex";
+
+  const currentUser = user || getStoredUser();
+  if (playerName && currentUser?.username) {
+    playerName.textContent = String(currentUser.username).toUpperCase();
+  }
+}
 
 // ========================================================
 // 8-BIT RETRO SOUND SYNTHESIZER (WEB AUDIO API)
@@ -291,15 +383,40 @@ ctxRefresh.addEventListener("click", () => {
 // DATA FETCHING & SYNCHRONIZATION
 // ========================================================
 async function fetchTasks() {
+  const token = getStoredToken();
+  if (!token) {
+    showLoginView();
+    return;
+  }
+
   try {
     syncText.textContent = "SYNCING...";
     let res;
     try {
-      res = await fetch(activeApiUrl, { cache: "no-store" });
+      res = await fetch(activeApiUrl, {
+        headers: getAuthHeaders(),
+        cache: "no-store",
+      });
+
+      if (res.status === 401) {
+        console.warn("Widget unauthenticated (401), showing login view");
+        clearSession();
+        showLoginView("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
+
       if (!res.ok && activeApiUrl === PROD_API_URL) {
         // Fallback ke local dev jika endpoint production Vercel belum tersedia
         console.warn(`Production API ${res.status}, mencoba fallback ke localhost...`);
-        const localRes = await fetch(LOCAL_API_URL, { cache: "no-store" });
+        const localRes = await fetch(LOCAL_API_URL, {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        });
+        if (localRes.status === 401) {
+          clearSession();
+          showLoginView("Sesi login berakhir. Silakan login kembali.");
+          return;
+        }
         if (localRes.ok) {
           res = localRes;
           syncText.textContent = "LOCAL (PROD SYNCING)";
@@ -307,7 +424,15 @@ async function fetchTasks() {
       }
     } catch (netErr) {
       console.warn("Network issue with prod, trying local:", netErr);
-      res = await fetch(LOCAL_API_URL, { cache: "no-store" });
+      res = await fetch(LOCAL_API_URL, {
+        headers: getAuthHeaders(),
+        cache: "no-store",
+      });
+      if (res && res.status === 401) {
+        clearSession();
+        showLoginView("Sesi login berakhir. Silakan login kembali.");
+        return;
+      }
       syncText.textContent = "LOCAL";
     }
 
@@ -316,6 +441,11 @@ async function fetchTasks() {
     }
 
     const data = await res.json();
+
+    if (data.user) {
+      showMainView(data.user);
+      saveSession(token, data.user);
+    }
 
     // Pisahkan active tasks dan archived tasks
     if (data.archivedTasks) {
@@ -535,11 +665,17 @@ async function toggleTaskStatus(task) {
   renderTasks();
 
   try {
-    await fetch(activeApiUrl, {
+    const res = await fetch(activeApiUrl, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ id: task.id, status: newStatus }),
     });
+
+    if (res.status === 401) {
+      clearSession();
+      showLoginView("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
 
     const remaining = tasks.filter((t) => t.status !== "DONE").length;
     if (remaining === 0 && tasks.length > 0) {
@@ -555,12 +691,19 @@ async function toggleArchiveTask(task, shouldArchive) {
   try {
     const res = await fetch(activeApiUrl, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         id: task.id,
         isArchived: shouldArchive,
       }),
     });
+
+    if (res.status === 401) {
+      clearSession();
+      showLoginView("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
+
     if (res.ok) {
       await fetchTasks();
     }
@@ -582,7 +725,7 @@ addForm.addEventListener("submit", async (e) => {
     syncText.textContent = "MENYIMPAN...";
     const res = await fetch(activeApiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         title,
         priority,
@@ -591,6 +734,12 @@ addForm.addEventListener("submit", async (e) => {
       }),
     });
 
+    if (res.status === 401) {
+      clearSession();
+      showLoginView("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
+
     if (res.ok) {
       await fetchTasks();
     }
@@ -598,6 +747,117 @@ addForm.addEventListener("submit", async (e) => {
     console.error("Gagal menambah tugas:", err);
   }
 });
+
+// ========================================================
+// LOGIN FORM & AUTHENTICATION HANDLERS
+// ========================================================
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value.trim();
+
+    if (!username || !password) {
+      if (loginError && loginErrorMsg) {
+        loginErrorMsg.textContent = "Username & password wajib diisi!";
+        loginError.style.display = "flex";
+      }
+      return;
+    }
+
+    playSound("blip");
+    if (loginSubmitBtn) loginSubmitBtn.disabled = true;
+    if (loginBtnText) loginBtnText.textContent = "MEMERIKSA...";
+    if (loginError) loginError.style.display = "none";
+    if (loginDot) loginDot.className = "status-dot yellow";
+    if (loginServerStatus) loginServerStatus.textContent = "LOGIN...";
+
+    try {
+      let res;
+      let usedHost = PROD_API_HOST;
+
+      // 1. Coba login ke Vercel production
+      try {
+        res = await fetch(`${PROD_API_HOST}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        if (!res.ok && res.status !== 400 && res.status !== 401) {
+          throw new Error(`Production server returned ${res.status}`);
+        }
+      } catch (prodErr) {
+        console.warn("Gagal terhubung ke Vercel production, mencoba localhost:", prodErr);
+        usedHost = "http://localhost:3000";
+        res = await fetch(`${usedHost}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+      }
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        playSound("blip");
+        const errMsg = data.error || "Username atau password salah!";
+        if (loginError && loginErrorMsg) {
+          loginErrorMsg.textContent = errMsg;
+          loginError.style.display = "flex";
+        }
+        if (loginDot) loginDot.className = "status-dot red";
+        if (loginServerStatus) loginServerStatus.textContent = "GAGAL MASUK";
+        return;
+      }
+
+      // Login Berhasil!
+      playSound("fanfare");
+      activeHost = usedHost;
+      activeApiUrl = usedHost === PROD_API_HOST ? PROD_API_URL : LOCAL_API_URL;
+      saveSession(data.token, data.user);
+
+      if (loginDot) loginDot.className = "status-dot green";
+      if (loginServerStatus) loginServerStatus.textContent = "LOGIN BERHASIL";
+
+      loginPassword.value = "";
+      showMainView(data.user);
+      await fetchTasks();
+    } catch (err) {
+      console.error("Gagal melakukan login:", err);
+      playSound("blip");
+      if (loginError && loginErrorMsg) {
+        loginErrorMsg.textContent = "Tidak dapat terhubung ke server!";
+        loginError.style.display = "flex";
+      }
+      if (loginDot) loginDot.className = "status-dot red";
+      if (loginServerStatus) loginServerStatus.textContent = "OFFLINE";
+    } finally {
+      if (loginSubmitBtn) loginSubmitBtn.disabled = false;
+      if (loginBtnText) loginBtnText.textContent = "▶ MASUK QUEST";
+    }
+  });
+}
+
+// Logout Action
+if (ctxLogout) {
+  ctxLogout.addEventListener("click", async () => {
+    playSound("blip");
+    hideContextMenu();
+    try {
+      await fetch(`${activeHost}/api/auth/logout`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+    } catch (err) {
+      console.warn("Logout request failed:", err);
+    }
+    clearSession();
+    tasks = [];
+    archivedTasks = [];
+    showLoginView("Anda telah logout. Silakan login kembali.");
+  });
+}
 
 // Tab Buttons Click (Hanya 2 kategori: TASK & ARCHIVE)
 tabButtons.forEach((btn) => {
@@ -623,6 +883,22 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Initial Sync and Polling (Every 15 Seconds)
-fetchTasks();
-setInterval(fetchTasks, 15000);
+// ========================================================
+// INITIAL BOOT & AUTH VERIFICATION
+// ========================================================
+const initialToken = getStoredToken();
+const initialUser = getStoredUser();
+
+if (!initialToken) {
+  showLoginView();
+} else {
+  showMainView(initialUser);
+  fetchTasks();
+}
+
+// Background Polling (Setiap 15 Detik jika sudah login)
+setInterval(() => {
+  if (getStoredToken()) {
+    fetchTasks();
+  }
+}, 15000);
