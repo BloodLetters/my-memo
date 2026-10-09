@@ -92,8 +92,8 @@ DATABASE_URL="file:./data/app.db"
 AI_BASE_URL="http://localhost:8001"
 
 # Gemini LLM Provider
-API_KEY="AQ.Ab8RN6KRDD8NoyohO2pN6yhG_RUsuU6gc88aTppDJ5wKmV3ULw"
-LLM_API_KEY="AQ.Ab8RN6KRDD8NoyohO2pN6yhG_RUsuU6gc88aTppDJ5wKmV3ULw"
+API_KEY="your-gemini-api-key"
+LLM_API_KEY="your-gemini-api-key"
 LLM_MODEL="gemini-2.5-flash"
 
 # Server Ports

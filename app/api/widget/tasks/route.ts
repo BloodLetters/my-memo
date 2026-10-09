@@ -7,7 +7,7 @@ import { TaskPriority } from "@/lib/types";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-session-token",
 };
 
 export async function OPTIONS() {
@@ -17,33 +17,18 @@ export async function OPTIONS() {
   });
 }
 
-async function resolveWidgetUser() {
-  // 1. Coba dari session cookies
-  const user = await getCurrentUser();
-  if (user) return user;
-
-  // 2. Fallback untuk desktop widget lokal (ambil user utama)
-  let localUser = await db.user.findFirst({
-    select: { id: true, username: true, createdAt: true },
-  });
-
-  if (!localUser) {
-    await ensureDefaultUser();
-    localUser = await db.user.findFirst({
-      select: { id: true, username: true, createdAt: true },
-    });
-  }
-
-  return localUser;
+async function resolveWidgetUser(req: Request) {
+  // Coba dari session cookies atau Authorization Bearer header
+  return await getCurrentUser(req);
 }
 
 export async function GET(req: Request) {
   try {
-    const user = await resolveWidgetUser();
+    const user = await resolveWidgetUser(req);
     if (!user) {
       return NextResponse.json(
-        { error: "User tidak ditemukan." },
-        { status: 404, headers: corsHeaders }
+        { error: "Unauthorized. Silakan login terlebih dahulu di widget." },
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -91,11 +76,11 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const user = await resolveWidgetUser();
+    const user = await resolveWidgetUser(req);
     if (!user) {
       return NextResponse.json(
-        { error: "User tidak ditemukan." },
-        { status: 404, headers: corsHeaders }
+        { error: "Unauthorized. Silakan login terlebih dahulu di widget." },
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -126,11 +111,11 @@ export async function PATCH(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await resolveWidgetUser();
+    const user = await resolveWidgetUser(req);
     if (!user) {
       return NextResponse.json(
-        { error: "User tidak ditemukan." },
-        { status: 404, headers: corsHeaders }
+        { error: "Unauthorized. Silakan login terlebih dahulu di widget." },
+        { status: 401, headers: corsHeaders }
       );
     }
 

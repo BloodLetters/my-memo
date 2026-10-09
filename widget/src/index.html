@@ -30,22 +30,25 @@
     </header>
 
     <!-- STATUS BAR (MASCOT & TASK / ARCHIVE COUNTS) -->
-    <div class="hud-bar">
+    <div class="hud-bar" id="hudBar">
       <div class="player-info">
         <span class="player-avatar" id="mascotAvatar">🐱</span>
-        <div class="stat-counts">
-          <span class="stat-badge stat-task" id="taskCountBadge">0 TASK</span>
-          <span class="stat-sep">•</span>
-          <span class="stat-badge stat-archive" id="archiveCountBadge">0 ARCHIVE</span>
+        <div class="player-details">
+          <span class="player-name" id="playerName">PLAYER</span>
+          <div class="stat-counts">
+            <span class="stat-badge stat-task" id="taskCountBadge">0 TASK</span>
+            <span class="stat-sep">•</span>
+            <span class="stat-badge stat-archive" id="archiveCountBadge">0 ARCHIVE</span>
+          </div>
         </div>
       </div>
       <div class="hud-right">
-        <button id="refreshBtn" class="retro-btn icon-btn" title="Refresh dari Vercel Production">↻</button>
+        <button id="refreshBtn" class="retro-btn icon-btn" title="Refresh">↻</button>
       </div>
     </div>
 
     <!-- 2 CATEGORIES ONLY: TASK & ARCHIVE -->
-    <div class="filter-tabs two-tabs">
+    <div class="filter-tabs two-tabs" id="filterTabs">
       <button class="tab-btn active" data-tab="TASK">📋 TASK</button>
       <button class="tab-btn" data-tab="ARCHIVE">📦 ARCHIVE</button>
     </div>
@@ -59,7 +62,7 @@
     </main>
 
     <!-- QUICK ADD INPUT BAR -->
-    <footer class="pixel-footer">
+    <footer class="pixel-footer" id="pixelFooter">
       <form id="addForm" class="add-form">
         <span class="prompt-arrow">&gt;</span>
         <input 
@@ -85,12 +88,72 @@
       </div>
     </footer>
 
+    <!-- LOGIN SCREEN VIEW (TAMPIL OTOMATIS JIKA BELUM LOGIN) -->
+    <div class="login-view" id="loginView" style="display: none;">
+      <div class="login-card">
+        <div class="login-mascot">👾</div>
+        <h2 class="login-title">QUEST LOGIN</h2>
+        <p class="login-subtitle">Masuk untuk memuat task memo kamu</p>
+
+        <form id="loginForm" class="login-form">
+          <div class="login-field">
+            <label class="login-label" for="loginUsername">USERNAME</label>
+            <div class="login-input-box">
+              <span class="login-input-icon">👤</span>
+              <input 
+                type="text" 
+                id="loginUsername" 
+                class="retro-input login-input" 
+                placeholder="Username..." 
+                autocomplete="username"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="login-field">
+            <label class="login-label" for="loginPassword">PASSWORD</label>
+            <div class="login-input-box">
+              <span class="login-input-icon">🔑</span>
+              <input 
+                type="password" 
+                id="loginPassword" 
+                class="retro-input login-input" 
+                placeholder="Password..." 
+                autocomplete="current-password"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Alert Pesan Error Login -->
+          <div id="loginError" class="login-error" style="display: none;">
+            <span class="error-symbol">!</span>
+            <span id="loginErrorMsg">Username atau password salah</span>
+          </div>
+
+          <button type="submit" id="loginSubmitBtn" class="retro-btn login-btn">
+            <span id="loginBtnText">▶ MASUK QUEST</span>
+          </button>
+        </form>
+
+        <div class="login-footer">
+          <div class="sync-status">
+            <span class="status-dot green" id="loginDot"></span>
+            <span id="loginServerStatus">SIAP LOGIN</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- RETRO PIXEL CONTEXT MENU -->
     <div id="contextMenu" class="pixel-context-menu" style="display: none;">
       <div class="menu-item" id="ctxToggleMode">🖥️ Mode: Nempel di Desktop</div>
       <div class="menu-item" id="ctxToggleLock">🔓 Kunci Posisi (Lock)</div>
       <div class="menu-item" id="ctxToggleSound">🔊 Suara 8-Bit (ON)</div>
       <div class="menu-item" id="ctxRefresh">↻ Refresh Quest</div>
+      <div class="menu-divider"></div>
+      <div class="menu-item" id="ctxLogout">🚪 Ganti Akun / Logout</div>
       <div class="menu-divider"></div>
       <div class="menu-item danger" id="ctxClose">✕ Tutup Widget</div>
     </div>

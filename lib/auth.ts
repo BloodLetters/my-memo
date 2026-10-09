@@ -38,10 +38,26 @@ export async function createSession(userId: string): Promise<string> {
   return token;
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(req?: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    let token: string | undefined;
+
+    // 1. Check Authorization header or x-session-token from Request (e.g. from Desktop Widget)
+    if (req) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+        token = authHeader.slice(7).trim();
+      }
+      if (!token) {
+        token = req.headers.get("x-session-token") || undefined;
+      }
+    }
+
+    // 2. Fallback to browser session cookies
+    if (!token) {
+      const cookieStore = await cookies();
+      token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    }
 
     if (!token) {
       return null;
@@ -97,13 +113,15 @@ export async function destroySession() {
 export async function ensureDefaultUser() {
   const userCount = await db.user.count();
   if (userCount === 0) {
-    const passwordHash = await hashPassword("Aril4511");
+    const defaultUsername = process.env.DEFAULT_USERNAME || "admin";
+    const defaultPassword = process.env.DEFAULT_PASSWORD || "admin123";
+    const passwordHash = await hashPassword(defaultPassword);
     await db.user.create({
       data: {
-        username: "Aril3721",
+        username: defaultUsername,
         passwordHash,
       },
     });
-    console.log("Created initial default user: username 'Aril3721'");
+    console.log(`Created initial default user: username '${defaultUsername}'`);
   }
 }

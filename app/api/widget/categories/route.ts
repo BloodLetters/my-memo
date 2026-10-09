@@ -6,7 +6,7 @@ import { getCategories, createCategory } from "@/services/taskService";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-session-token",
 };
 
 export async function OPTIONS() {
@@ -16,31 +16,17 @@ export async function OPTIONS() {
   });
 }
 
-async function resolveWidgetUser() {
-  const user = await getCurrentUser();
-  if (user) return user;
-
-  let localUser = await db.user.findFirst({
-    select: { id: true, username: true, createdAt: true },
-  });
-
-  if (!localUser) {
-    await ensureDefaultUser();
-    localUser = await db.user.findFirst({
-      select: { id: true, username: true, createdAt: true },
-    });
-  }
-
-  return localUser;
+async function resolveWidgetUser(req: Request) {
+  return await getCurrentUser(req);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const user = await resolveWidgetUser();
+    const user = await resolveWidgetUser(req);
     if (!user) {
       return NextResponse.json(
-        { error: "User tidak ditemukan." },
-        { status: 404, headers: corsHeaders }
+        { error: "Unauthorized. Silakan login terlebih dahulu di widget." },
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -64,11 +50,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const user = await resolveWidgetUser();
+    const user = await resolveWidgetUser(req);
     if (!user) {
       return NextResponse.json(
-        { error: "User tidak ditemukan." },
-        { status: 404, headers: corsHeaders }
+        { error: "Unauthorized. Silakan login terlebih dahulu di widget." },
+        { status: 401, headers: corsHeaders }
       );
     }
 
