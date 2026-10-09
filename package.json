@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "widget:dev": "npm --prefix widget run dev",
+    "widget:build": "npm --prefix widget run build",
+    "widget:build:exe": "npm --prefix widget run build:exe"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

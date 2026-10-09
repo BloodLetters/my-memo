@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Memo Widget</title>
+  <!-- Google Fonts: Press Start 2P & Silkscreen -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="pixel-window" id="pixelWindow">
+    <!-- SCANLINE CRT EFFECT OVERLAY -->
+    <div class="scanlines"></div>
+
+    <!-- TITLEBAR (DRAGGABLE REGION - RAINMETER STYLE, NO MIN/CLOSE) -->
+    <header class="pixel-header" id="dragHeader" data-tauri-drag-region>
+      <div class="header-left" data-tauri-drag-region>
+        <span class="pixel-icon" data-tauri-drag-region>👾</span>
+        <span class="header-title" data-tauri-drag-region>PIXEL MEMO</span>
+      </div>
+      <div class="header-controls">
+        <button id="lockBtn" class="retro-btn icon-btn" title="Kunci Posisi Widget">🔓</button>
+        <button id="modeBtn" class="retro-btn icon-btn active" title="Mode: Tertempel di Desktop (Rainmeter)">🖥️</button>
+        <button id="menuBtn" class="retro-btn icon-btn" title="Menu Opsi">⚙</button>
+      </div>
+    </header>
+
+    <!-- EXP & STATUS HUD BAR -->
+    <div class="hud-bar">
+      <div class="player-info">
+        <span class="player-avatar" id="mascotAvatar">🐱</span>
+        <div class="player-details">
+          <div class="player-name" id="playerName">LV.1 QUEST LOG</div>
+          <div class="exp-bar-container">
+            <div class="exp-bar-fill" id="expFill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="exp-text" id="expText">0/0 XP</div>
+    </div>
+
+    <!-- FILTER TABS -->
+    <div class="filter-tabs">
+      <button class="tab-btn active" data-tab="ALL">ALL</button>
+      <button class="tab-btn" data-tab="TODO">TODO</button>
+      <button class="tab-btn" data-tab="IN_PROGRESS">DOING</button>
+      <button class="tab-btn" data-tab="DONE">DONE</button>
+    </div>
+
+    <!-- QUEST LIST CONTAINER -->
+    <main class="quest-container" id="questList">
+      <div class="empty-state">
+        <div class="pixel-spinner"></div>
+        <p>MEMUAT QUEST...</p>
+      </div>
+    </main>
+
+    <!-- QUICK ADD INPUT BAR -->
+    <footer class="pixel-footer">
+      <form id="addForm" class="add-form">
+        <span class="prompt-arrow">&gt;</span>
+        <input 
+          type="text" 
+          id="taskInput" 
+          class="retro-input" 
+          placeholder="Tambah quest..." 
+          autocomplete="off"
+        />
+        <select id="prioritySelect" class="retro-select" title="Prioritas">
+          <option value="LOW">LOW</option>
+          <option value="MEDIUM" selected>MED</option>
+          <option value="HIGH">HIGH</option>
+          <option value="URGENT">URG</option>
+        </select>
+        <button type="submit" class="retro-btn submit-btn" title="Tambah Tugas">+</button>
+      </form>
+      <div class="footer-meta">
+        <div class="sync-status" id="syncStatus">
+          <span class="status-dot green"></span>
+          <span id="syncText">SYNCED</span>
+        </div>
+        <button id="refreshBtn" class="retro-btn text-btn" title="Refresh Data">↻ REFRESH</button>
+      </div>
+    </footer>
+
+    <!-- RETRO PIXEL CONTEXT MENU -->
+    <div id="contextMenu" class="pixel-context-menu" style="display: none;">
+      <div class="menu-item" id="ctxToggleMode">🖥️ Mode: Nempel di Desktop</div>
+      <div class="menu-item" id="ctxToggleLock">🔓 Kunci Posisi (Lock)</div>
+      <div class="menu-item" id="ctxToggleSound">🔊 Suara 8-Bit (ON)</div>
+      <div class="menu-item" id="ctxRefresh">↻ Refresh Quest</div>
+      <div class="menu-divider"></div>
+      <div class="menu-item danger" id="ctxClose">✕ Tutup Widget</div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
