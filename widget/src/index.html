@@ -94,6 +94,12 @@
         <h2 class="login-title">QUEST LOGIN</h2>
         <p class="login-subtitle">Masuk untuk memuat task memo kamu</p>
 
+        <!-- Server Selector -->
+        <div class="login-server-selector" id="loginServerSelector">
+          <button type="button" class="server-pill-btn active" id="pillVercel" data-server="vercel">☁️ VERCEL CLOUD</button>
+          <button type="button" class="server-pill-btn" id="pillLocal" data-server="local">💻 LOCAL (3000)</button>
+        </div>
+
         <form id="loginForm" class="login-form">
           <div class="login-field">
             <label class="login-label" for="loginUsername">USERNAME</label>
@@ -186,6 +192,7 @@
       <div class="menu-item" id="ctxToggleSound">🔊 Suara 8-Bit (ON)</div>
       <div class="menu-item" id="ctxToggleStartup">🚀 Buka saat PC Hidup (OFF)</div>
       <div class="menu-item" id="ctxRefresh">↻ Refresh Quest</div>
+      <div class="menu-item" id="ctxToggleServer">🌐 Server: Vercel Cloud</div>
       <div class="menu-divider"></div>
       <div class="menu-item" id="ctxLogout">🚪 Ganti Akun / Logout</div>
       <div class="menu-divider"></div>

@@ -4,12 +4,26 @@
 // ========================================================
 
 const PROD_API_HOST = "https://memo-ash.vercel.app";
-const PROD_API_URL = "https://memo-ash.vercel.app/api/widget/tasks";
-const LOCAL_API_URL = "http://localhost:3000/api/widget/tasks";
+const LOCAL_API_HOST = "http://localhost:3000";
 
-// Primary API endpoint is Vercel Production
-let activeApiUrl = PROD_API_URL;
-let activeHost = PROD_API_HOST;
+const STORAGE_TOKEN_KEY = "mymemo_widget_token";
+const STORAGE_USER_KEY = "mymemo_widget_user";
+const STORAGE_HOST_KEY = "mymemo_widget_host";
+
+function getStoredHostPreference() {
+  return localStorage.getItem(STORAGE_HOST_KEY) || "auto";
+}
+
+function setStoredHostPreference(pref) {
+  localStorage.setItem(STORAGE_HOST_KEY, pref);
+}
+
+// Inisialisasi host aktif berdasarkan simpanan sebelumnya
+let activeHost = getStoredHostPreference() === "local" ? LOCAL_API_HOST : PROD_API_HOST;
+
+function getAlternativeHost(host) {
+  return host === PROD_API_HOST ? LOCAL_API_HOST : PROD_API_HOST;
+}
 
 let tasks = [];          // Active tasks
 let archivedTasks = [];  // Archived tasks
@@ -76,14 +90,27 @@ const ctxToggleLock = document.getElementById("ctxToggleLock");
 const ctxToggleSound = document.getElementById("ctxToggleSound");
 const ctxToggleStartup = document.getElementById("ctxToggleStartup");
 const ctxRefresh = document.getElementById("ctxRefresh");
+const ctxToggleServer = document.getElementById("ctxToggleServer");
 const ctxLogout = document.getElementById("ctxLogout");
 const ctxClose = document.getElementById("ctxClose");
+
+const pillVercel = document.getElementById("pillVercel");
+const pillLocal = document.getElementById("pillLocal");
+
+function updateServerUI() {
+  const isVercel = activeHost === PROD_API_HOST;
+  if (ctxToggleServer) {
+    ctxToggleServer.textContent = `🌐 Server: ${isVercel ? "Vercel Cloud" : "Localhost:3000"} (Ganti)`;
+  }
+  if (pillVercel && pillLocal) {
+    pillVercel.classList.toggle("active", isVercel);
+    pillLocal.classList.toggle("active", !isVercel);
+  }
+}
 
 // ========================================================
 // AUTH & SESSION STATE HELPERS
 // ========================================================
-const STORAGE_TOKEN_KEY = "mymemo_widget_token";
-const STORAGE_USER_KEY = "mymemo_widget_user";
 
 function getStoredToken() {
   return localStorage.getItem(STORAGE_TOKEN_KEY) || "";
@@ -128,6 +155,11 @@ function showLoginView(errorMessage = "") {
   if (questList) questList.style.display = "none";
   if (pixelFooter) pixelFooter.style.display = "none";
 
+  updateServerUI();
+  if (loginServerStatus) {
+    loginServerStatus.textContent = activeHost === PROD_API_HOST ? "SIAP (VERCEL)" : "SIAP (LOCALHOST:3000)";
+  }
+
   if (loginError && loginErrorMsg) {
     if (errorMessage) {
       loginErrorMsg.textContent = errorMessage;
@@ -145,6 +177,8 @@ function showMainView(user) {
   if (filterTabs) filterTabs.style.display = "flex";
   if (questList) questList.style.display = "block";
   if (pixelFooter) pixelFooter.style.display = "flex";
+
+  updateServerUI();
 
   const currentUser = user || getStoredUser();
   if (playerName && currentUser?.username) {
@@ -420,13 +454,86 @@ ctxClose.addEventListener("click", () => {
 
 ctxRefresh.addEventListener("click", () => {
   playSound("blip");
+  syncText.textContent = "REFRESHING...";
   fetchTasks();
   hideContextMenu();
 });
 
+if (ctxToggleServer) {
+  ctxToggleServer.addEventListener("click", () => {
+    playSound("blip");
+    hideContextMenu();
+    const nextHost = activeHost === PROD_API_HOST ? LOCAL_API_HOST : PROD_API_HOST;
+    activeHost = nextHost;
+    setStoredHostPreference(nextHost === LOCAL_API_HOST ? "local" : "vercel");
+    updateServerUI();
+    syncText.textContent = "CONNECTING...";
+    fetchTasks();
+  });
+}
+
 // ========================================================
 // DATA FETCHING & SYNCHRONIZATION
 // ========================================================
+
+// Helper untuk mencoba fetch dari 1 host tertentu (mencoba /api/widget/tasks lalu /api/tasks)
+async function tryFetchTasksFromHost(host) {
+  try {
+    // 1. Coba endpoint khusus widget
+    const res = await fetch(`${host}/api/widget/tasks`, {
+      headers: getAuthHeaders(),
+      cache: "no-store",
+    });
+
+    if (res.status === 401) {
+      return { status: 401, ok: false };
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, data, host, url: res.url };
+    }
+
+    // 2. Jika 404, fallback ke standard /api/tasks di host yang sama
+    if (res.status === 404) {
+      console.warn(`[Sync] /api/widget/tasks 404 di ${host}, mencoba /api/tasks...`);
+      const [activeRes, archiveRes] = await Promise.all([
+        fetch(`${host}/api/tasks?isArchived=false&sortBy=deadline&sortOrder=asc`, {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }),
+        fetch(`${host}/api/tasks?isArchived=true&sortBy=deadline&sortOrder=asc`, {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }),
+      ]);
+
+      if (activeRes.status === 401 || archiveRes.status === 401) {
+        return { status: 401, ok: false };
+      }
+
+      if (activeRes.ok && archiveRes.ok) {
+        const activeData = await activeRes.json();
+        const archiveData = await archiveRes.json();
+        return {
+          ok: true,
+          data: {
+            tasks: activeData.tasks || [],
+            archivedTasks: archiveData.tasks || [],
+            user: getStoredUser(),
+          },
+          host,
+          url: activeRes.url,
+        };
+      }
+    }
+
+    return { ok: false, status: res.status };
+  } catch (err) {
+    return { ok: false, error: err };
+  }
+}
+
 async function fetchTasks() {
   const token = getStoredToken();
   if (!token) {
@@ -436,56 +543,50 @@ async function fetchTasks() {
 
   try {
     syncText.textContent = "SYNCING...";
-    let res;
-    try {
-      res = await fetch(activeApiUrl, {
-        headers: getAuthHeaders(),
-        cache: "no-store",
-      });
+    updateServerUI();
 
-      if (res.status === 401) {
-        console.warn("Widget unauthenticated (401), showing login view");
+    // 1. Coba request ke host yang sedang aktif
+    let result = await tryFetchTasksFromHost(activeHost);
+
+    // 2. Jika sesi tidak valid (401)
+    if (result.status === 401) {
+      console.warn("Widget unauthenticated (401), showing login view");
+      clearSession();
+      showLoginView("Sesi login berakhir. Silakan login kembali.");
+      return;
+    }
+
+    // 3. Jika gagal di host aktif, coba otomatis ke host alternatif (Vercel <-> Localhost)
+    if (!result.ok) {
+      const altHost = getAlternativeHost(activeHost);
+      console.warn(`[Sync] Gagal di ${activeHost}, mencoba host alternatif ${altHost}...`);
+      const altResult = await tryFetchTasksFromHost(altHost);
+
+      if (altResult.status === 401) {
         clearSession();
         showLoginView("Sesi login berakhir. Silakan login kembali.");
         return;
       }
 
-      if (!res.ok && activeApiUrl === PROD_API_URL) {
-        // Fallback ke local dev jika endpoint production Vercel belum tersedia
-        console.warn(`Production API ${res.status}, mencoba fallback ke localhost...`);
-        const localRes = await fetch(LOCAL_API_URL, {
-          headers: getAuthHeaders(),
-          cache: "no-store",
-        });
-        if (localRes.status === 401) {
-          clearSession();
-          showLoginView("Sesi login berakhir. Silakan login kembali.");
-          return;
-        }
-        if (localRes.ok) {
-          res = localRes;
-          syncText.textContent = "LOCAL (PROD SYNCING)";
-        }
+      if (altResult.ok) {
+        // Berhasil switch ke host alternatif
+        activeHost = altHost;
+        setStoredHostPreference(altHost === LOCAL_API_HOST ? "local" : "vercel");
+        result = altResult;
+        console.log(`[Sync] Berhasil beralih ke: ${activeHost}`);
       }
-    } catch (netErr) {
-      console.warn("Network issue with prod, trying local:", netErr);
-      res = await fetch(LOCAL_API_URL, {
-        headers: getAuthHeaders(),
-        cache: "no-store",
-      });
-      if (res && res.status === 401) {
-        clearSession();
-        showLoginView("Sesi login berakhir. Silakan login kembali.");
-        return;
-      }
-      syncText.textContent = "LOCAL";
     }
 
-    if (!res || !res.ok) {
-      throw new Error(`Server returned status ${res?.status || "offline"}`);
+    if (!result.ok) {
+      const isNetworkErr = !result.status;
+      const hostLabel = activeHost === PROD_API_HOST ? "Vercel Cloud" : "Localhost:3000";
+      const errMsg = isNetworkErr
+        ? `${hostLabel} tidak aktif`
+        : `Status ${result.status}`;
+      throw new Error(errMsg);
     }
 
-    const data = await res.json();
+    const data = result.data;
 
     if (data.user) {
       showMainView(data.user);
@@ -506,16 +607,17 @@ async function fetchTasks() {
     renderTasks();
 
     syncStatus.querySelector(".status-dot").className = "status-dot green";
-    if (res.url && res.url.includes("vercel.app")) {
+    if (activeHost === PROD_API_HOST) {
       syncText.textContent = "VERCEL LIVE";
-    } else if (syncText.textContent === "SYNCING...") {
-      syncText.textContent = "ONLINE";
+    } else {
+      syncText.textContent = "LOCAL DEV";
     }
+    updateServerUI();
   } catch (err) {
     console.warn("Failed to sync tasks:", err);
     syncStatus.querySelector(".status-dot").className = "status-dot red";
     syncText.textContent = "OFFLINE";
-    showErrorState();
+    showErrorState(err instanceof Error ? err.message : "Server offline");
   }
 }
 
@@ -617,7 +719,7 @@ function openTaskDetail(task) {
   if (task.imageUrl && task.imageUrl.trim()) {
     let imgUrl = task.imageUrl.trim();
     if (imgUrl.startsWith("/")) {
-      imgUrl = `${PROD_API_HOST}${imgUrl}`;
+      imgUrl = `${activeHost}${imgUrl}`;
     }
     imageBlock = `
       <div class="detail-section">
@@ -781,7 +883,7 @@ function renderTasks() {
     if (task.imageUrl && task.imageUrl.trim()) {
       let imgUrl = task.imageUrl.trim();
       if (imgUrl.startsWith("/")) {
-        imgUrl = `${PROD_API_HOST}${imgUrl}`;
+        imgUrl = `${activeHost}${imgUrl}`;
       }
       imageHtml = `
         <div class="quest-image-container">
@@ -856,7 +958,7 @@ function renderTasks() {
       if (e.target.classList.contains("quest-image")) {
         e.stopPropagation();
         let imgUrl = task.imageUrl.trim();
-        if (imgUrl.startsWith("/")) imgUrl = `${PROD_API_HOST}${imgUrl}`;
+        if (imgUrl.startsWith("/")) imgUrl = `${activeHost}${imgUrl}`;
         openImageLightbox(imgUrl);
         return;
       }
@@ -867,15 +969,51 @@ function renderTasks() {
   });
 }
 
-function showErrorState() {
+function showErrorState(errReason = "") {
+  const isVercel = activeHost === PROD_API_HOST;
+  const currentLabel = isVercel ? "Vercel Cloud" : "Localhost:3000";
+  const altLabel = isVercel ? "Localhost (3000)" : "Vercel Cloud";
+
   questList.innerHTML = `
     <div class="empty-state">
       <span class="empty-icon">📡</span>
-      <p>SERVER OFFLINE / MENUNGGU DEPLOY<br><span style="font-size: 8px; color: #fe5b59;">Hubungkan ke memo-ash.vercel.app</span></p>
-      <button class="retro-btn text-btn" id="retryBtn">COBA LAGI</button>
+      <p style="font-size: 10px; color: #fe5b59; font-weight: bold; margin-bottom: 2px;">
+        KONEKSI BERMASALAH
+      </p>
+      <p style="font-size: 8px; color: var(--text-muted); line-height: 1.4; padding: 0 10px;">
+        Tidak dapat terhubung ke ${escapeHtml(currentLabel)}.<br>
+        ${errReason ? `<span style="color:#ff9999;">(${escapeHtml(errReason)})</span><br>` : ""}
+        Pastikan server aktif atau beralih server.
+      </p>
+      <div class="error-actions">
+        <button class="retro-btn text-btn" id="retryBtn">↻ COBA LAGI</button>
+        <button class="retro-btn text-btn" id="switchServerBtn">🌐 GANTI KE ${escapeHtml(altLabel.toUpperCase())}</button>
+        <button class="retro-btn text-btn" id="errorLogoutBtn">🚪 GANTI AKUN / LOGIN</button>
+      </div>
     </div>
   `;
-  document.getElementById("retryBtn")?.addEventListener("click", fetchTasks);
+
+  document.getElementById("retryBtn")?.addEventListener("click", () => {
+    playSound("blip");
+    syncText.textContent = "SYNCING...";
+    fetchTasks();
+  });
+
+  document.getElementById("switchServerBtn")?.addEventListener("click", () => {
+    playSound("blip");
+    const nextHost = isVercel ? LOCAL_API_HOST : PROD_API_HOST;
+    setStoredHostPreference(nextHost === LOCAL_API_HOST ? "local" : "vercel");
+    activeHost = nextHost;
+    updateServerUI();
+    syncText.textContent = "CONNECTING...";
+    fetchTasks();
+  });
+
+  document.getElementById("errorLogoutBtn")?.addEventListener("click", () => {
+    playSound("blip");
+    clearSession();
+    showLoginView("Silakan login kembali.");
+  });
 }
 
 // ========================================================
@@ -895,11 +1033,19 @@ async function toggleTaskStatus(task) {
   renderTasks();
 
   try {
-    const res = await fetch(activeApiUrl, {
+    let res = await fetch(`${activeHost}/api/widget/tasks`, {
       method: "PATCH",
       headers: getAuthHeaders(),
       body: JSON.stringify({ id: task.id, status: newStatus }),
     });
+
+    if (res.status === 404) {
+      res = await fetch(`${activeHost}/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+    }
 
     if (res.status === 401) {
       clearSession();
@@ -919,7 +1065,7 @@ async function toggleTaskStatus(task) {
 async function toggleArchiveTask(task, shouldArchive) {
   playSound("blip");
   try {
-    const res = await fetch(activeApiUrl, {
+    let res = await fetch(`${activeHost}/api/widget/tasks`, {
       method: "PATCH",
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -927,6 +1073,14 @@ async function toggleArchiveTask(task, shouldArchive) {
         isArchived: shouldArchive,
       }),
     });
+
+    if (res.status === 404) {
+      res = await fetch(`${activeHost}/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ isArchived: shouldArchive }),
+      });
+    }
 
     if (res.status === 401) {
       clearSession();
@@ -953,7 +1107,7 @@ addForm.addEventListener("submit", async (e) => {
 
   try {
     syncText.textContent = "MENYIMPAN...";
-    const res = await fetch(activeApiUrl, {
+    let res = await fetch(`${activeHost}/api/widget/tasks`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -963,6 +1117,19 @@ addForm.addEventListener("submit", async (e) => {
         isArchived: false,
       }),
     });
+
+    if (res.status === 404) {
+      res = await fetch(`${activeHost}/api/tasks`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title,
+          priority,
+          status: "TODO",
+          isArchived: false,
+        }),
+      });
+    }
 
     if (res.status === 401) {
       clearSession();
@@ -1004,27 +1171,27 @@ if (loginForm) {
 
     try {
       let res;
-      let usedHost = PROD_API_HOST;
+      let usedHost = activeHost;
 
-      // 1. Coba login ke Vercel production
       try {
-        res = await fetch(`${PROD_API_HOST}/api/auth/login`, {
+        res = await fetch(`${usedHost}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
         });
 
         if (!res.ok && res.status !== 400 && res.status !== 401) {
-          throw new Error(`Production server returned ${res.status}`);
+          throw new Error(`Server returned ${res.status}`);
         }
       } catch (prodErr) {
-        console.warn("Gagal terhubung ke Vercel production, mencoba localhost:", prodErr);
-        usedHost = "http://localhost:3000";
-        res = await fetch(`${usedHost}/api/auth/login`, {
+        console.warn(`Gagal terhubung ke ${usedHost}, mencoba host alternatif:`, prodErr);
+        const altHost = getAlternativeHost(usedHost);
+        res = await fetch(`${altHost}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
         });
+        usedHost = altHost;
       }
 
       const data = await res.json();
@@ -1044,8 +1211,9 @@ if (loginForm) {
       // Login Berhasil!
       playSound("fanfare");
       activeHost = usedHost;
-      activeApiUrl = usedHost === PROD_API_HOST ? PROD_API_URL : LOCAL_API_URL;
+      setStoredHostPreference(usedHost === LOCAL_API_HOST ? "local" : "vercel");
       saveSession(data.token, data.user);
+      updateServerUI();
 
       if (loginDot) loginDot.className = "status-dot green";
       if (loginServerStatus) loginServerStatus.textContent = "LOGIN BERHASIL";
@@ -1066,6 +1234,26 @@ if (loginForm) {
       if (loginSubmitBtn) loginSubmitBtn.disabled = false;
       if (loginBtnText) loginBtnText.textContent = "▶ MASUK QUEST";
     }
+  });
+}
+
+if (pillVercel) {
+  pillVercel.addEventListener("click", () => {
+    playSound("blip");
+    activeHost = PROD_API_HOST;
+    setStoredHostPreference("vercel");
+    updateServerUI();
+    if (loginServerStatus) loginServerStatus.textContent = "SIAP (VERCEL)";
+  });
+}
+
+if (pillLocal) {
+  pillLocal.addEventListener("click", () => {
+    playSound("blip");
+    activeHost = LOCAL_API_HOST;
+    setStoredHostPreference("local");
+    updateServerUI();
+    if (loginServerStatus) loginServerStatus.textContent = "SIAP (LOCALHOST:3000)";
   });
 }
 

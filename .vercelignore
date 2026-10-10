@@ -1,7 +1,7 @@
 # Vercel Deployment Ignore
-widget/
-ai-backend/
-data/
+/widget/
+/ai-backend/
+/data/
 *.db
 *.db-journal
 requirements.txt

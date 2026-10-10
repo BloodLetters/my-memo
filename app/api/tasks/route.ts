@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getTasks, createTask, TaskFilterOptions } from "@/services/taskService";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-session-token",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
+
 export async function GET(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req);
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
     }
 
     const { searchParams } = new URL(req.url);
@@ -37,29 +50,29 @@ export async function GET(req: Request) {
       sortOrder,
     });
 
-    return NextResponse.json({ tasks });
+    return NextResponse.json({ tasks }, { headers: corsHeaders });
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : "Gagal mengambil daftar tugas.";
     console.error("GET /api/tasks error:", error);
     return NextResponse.json(
       { error: errMsg },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req);
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
     }
 
     const body = await req.json();
     if (!body.title || !body.title.trim()) {
       return NextResponse.json(
         { error: "Judul tugas tidak boleh kosong." },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -74,13 +87,13 @@ export async function POST(req: Request) {
       tags: body.tags || [],
     });
 
-    return NextResponse.json({ task: newTask }, { status: 201 });
+    return NextResponse.json({ task: newTask }, { status: 201, headers: corsHeaders });
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : "Gagal menambahkan tugas baru.";
     console.error("POST /api/tasks error:", error);
     return NextResponse.json(
       { error: errMsg },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
